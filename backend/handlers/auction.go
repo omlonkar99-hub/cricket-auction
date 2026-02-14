@@ -523,26 +523,56 @@ func GetAuctionStatus(w http.ResponseWriter, r *http.Request) {
 func UpdateAuctionPresenceHandler(w http.ResponseWriter, r *http.Request) {
 	id, ok := getAuctionID(r)
 	if !ok {
-		http.Error(w, "Invalid auction ID", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid auction ID"})
 		return
 	}
+	
 	var req struct {
 		TeamID string `json:"teamId"` // Accept as string
 	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.TeamID == "" {
-		http.Error(w, "teamId required", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "teamId required"})
 		return
 	}
 	
 	// Convert string to int64
 	teamID, err := strconv.ParseInt(req.TeamID, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid team ID", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid team ID format"})
+		return
+	}
+	
+	// Validate that the team exists and is part of this auction
+	auction := getAuctionByID(id)
+	if auction == nil {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Auction not found"})
+		return
+	}
+
+	// Check if team is part of this auction
+	teamExists := false
+	for _, selectedTeamID := range auction.SelectedTeams {
+		if selectedTeamID == teamID {
+			teamExists = true
+			break
+		}
+	}
+	
+	if !teamExists {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Team not part of this auction"})
 		return
 	}
 	
 	UpdateAuctionPresence(id, teamID)
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 }
 
@@ -550,9 +580,12 @@ func UpdateAuctionPresenceHandler(w http.ResponseWriter, r *http.Request) {
 func GetAuctionPresenceHandler(w http.ResponseWriter, r *http.Request) {
 	id, ok := getAuctionID(r)
 	if !ok {
-		http.Error(w, "Invalid auction ID", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid auction ID"})
 		return
 	}
+	
 	online := GetOnlineTeams(id, 20*time.Second)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string][]int64{"onlineTeamIds": online})
