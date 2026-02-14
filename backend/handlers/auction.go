@@ -422,6 +422,36 @@ func getAuctionID(r *http.Request) (int64, bool) {
 	return id, err == nil
 }
 
+// Helper function to get auction by ID (returns auction object, not HTTP response)
+func getAuctionByID(id int64) *Auction {
+	for i := range auctions {
+		if auctions[i].ID == id {
+			return &auctions[i]
+		}
+	}
+	
+	// Try loading from DB if not in memory
+	if config.DB != nil {
+		LoadAuctionsFromDB()
+		for i := range auctions {
+			if auctions[i].ID == id {
+				return &auctions[i]
+			}
+		}
+		
+		// Fallback: fetch directly from DB
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		var auction Auction
+		if err := config.GetCollection("auctions").FindOne(ctx, bson.M{"_id": id}).Decode(&auction); err == nil {
+			auctions = append(auctions, auction)
+			return &auction
+		}
+	}
+	
+	return nil
+}
+
 func GetAuctionByID(w http.ResponseWriter, r *http.Request) {
 	id, ok := getAuctionID(r)
 	if !ok {
