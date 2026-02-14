@@ -30,6 +30,7 @@ export function useAuctionWebSocketSolid(auctionId) {
       // Use same logic as API utility
       const isProduction = typeof window !== 'undefined' && 
                           (window.location.hostname === 'cricketive.vercel.app' || 
+                           window.location.hostname === 'cricketive-git-main-happys-projects-7fca55f1.vercel.app' ||
                            window.location.hostname.includes('vercel.app'));
       
       let wsUrl;

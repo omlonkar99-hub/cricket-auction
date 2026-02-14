@@ -18,7 +18,6 @@ export default defineConfig({
   },
   build: {
     // Optimize for production
-    minify: 'terser',
     sourcemap: false,
     rollupOptions: {
       output: {
