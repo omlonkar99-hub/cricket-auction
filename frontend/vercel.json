@@ -3,6 +3,18 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "framework": "vite",
+  "env": {
+    "VITE_BACKEND_URL": "https://auction-backend-l24v.onrender.com",
+    "VITE_BACKEND_PORT": "443",
+    "NODE_VERSION": "18"
+  },
+  "build": {
+    "env": {
+      "VITE_BACKEND_URL": "https://auction-backend-l24v.onrender.com",
+      "VITE_BACKEND_PORT": "443",
+      "NODE_VERSION": "18"
+    }
+  },
   "rewrites": [
     {
       "source": "/(.*)",
