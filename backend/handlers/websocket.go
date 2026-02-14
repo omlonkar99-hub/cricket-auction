@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -12,7 +13,19 @@ import (
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return true // Allow all origins (configure properly in production)
+		origin := r.Header.Get("Origin")
+		// Allow your specific domains
+		if origin == "https://cricketive-auction.onrender.com" {
+			return true
+		}
+		if origin == "http://localhost:3000" {
+			return true
+		}
+		// Allow any .onrender.com domain
+		if strings.HasSuffix(origin, ".onrender.com") {
+			return true
+		}
+		return false
 	},
 }
 
