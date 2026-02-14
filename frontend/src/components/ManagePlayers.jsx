@@ -353,7 +353,7 @@ export default function ManagePlayers(props) {
                 <div 
                   class="bg-[#1a1a1a] rounded-xl p-2.5 md:p-3 border border-gray-800 hover:border-emerald-500/50 transition-colors"
                 >
-                  <div class="flex items-start gap-2 md:gap-2.5">
+                  <div class="flex items-center gap-2 md:gap-2.5">
                     <Show when={player.image} fallback={
                       <div class="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-[10px] md:text-xs font-bold flex-shrink-0">
                         {player.name.split(' ').map(n => n[0]).join('')}
@@ -362,10 +362,10 @@ export default function ManagePlayers(props) {
                       <img src={player.image} alt={player.name} class="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover flex-shrink-0" />
                     </Show>
                     <div class="flex-1 min-w-0">
-                      <div class="flex items-start gap-1 mb-1">
-                        <h3 class="text-xs md:text-sm font-bold leading-tight" style="word-break: break-word; line-height: 1.2;">{player.name}</h3>
+                      <div class="flex items-center gap-1 mb-1">
+                        <h3 class="text-xs md:text-sm font-bold leading-none" style="word-break: break-word; line-height: 1.1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">{player.name}</h3>
                         <Show when={player.isOverseas}>
-                          <span class="text-sm md:text-base flex-shrink-0 mt-0.5">✈️</span>
+                          <span class="text-sm md:text-base flex-shrink-0">✈️</span>
                         </Show>
                       </div>
                       <div class="flex items-center gap-1">

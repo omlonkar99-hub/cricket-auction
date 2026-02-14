@@ -317,7 +317,7 @@ export default function ManageTeams(props) {
                 <div 
                   class="bg-[#1a1a1a] rounded-xl p-2.5 md:p-3 border border-gray-800 hover:border-emerald-500/50 transition-colors"
                 >
-                  <div class="flex items-start gap-2 md:gap-2.5">
+                  <div class="flex items-center gap-2 md:gap-2.5">
                     <Show when={team.logo} fallback={
                       <div 
                         class="w-11 h-11 md:w-12 md:h-12 rounded-full flex items-center justify-center text-xs md:text-sm font-bold flex-shrink-0"
@@ -329,7 +329,7 @@ export default function ManageTeams(props) {
                       <img src={team.logo} alt={team.name} class="w-11 h-11 md:w-12 md:h-12 rounded-full object-cover flex-shrink-0" />
                     </Show>
                     <div class="flex-1 min-w-0">
-                      <h3 class="text-xs md:text-sm font-bold leading-tight mb-1" style="word-break: break-word; line-height: 1.2;">{team.name}</h3>
+                      <h3 class="text-xs md:text-sm font-bold leading-none mb-1" style="word-break: break-word; line-height: 1.1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">{team.name}</h3>
                       <div class="flex items-center gap-1.5 text-[10px] md:text-xs">
                         <span class="font-semibold text-gray-300">{team.shortName}</span>
                         <Show when={team.code}>

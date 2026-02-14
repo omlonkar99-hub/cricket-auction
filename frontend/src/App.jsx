@@ -77,6 +77,8 @@ function App() {
           if (res.status === 401) {
             handleLogout();
             alert('Your session has expired. Please login again.');
+          } else {
+            consecutiveFailures = 0; // Reset on success
           }
         } catch (_) {
           // Silent fail for team validation to avoid network error logouts
@@ -84,11 +86,11 @@ function App() {
       };
 
       validate();
-      sessionCheckInterval = setInterval(validate, 20000); // 20 seconds
+      sessionCheckInterval = setInterval(validate, 30000); // 30 seconds
       window.addEventListener('focus', validate);
       
     } else if (userRole === 'admin' || userRole === 'superadmin') {
-      // Admin validation: less frequent, 3-failure tolerance
+      // Admin validation: less frequent, 5-failure tolerance
       sessionCheckInterval = setInterval(async () => {
         try {
           const res = await apiCall('/api/auth/validate', {
@@ -98,8 +100,8 @@ function App() {
           if (!res.ok) {
             consecutiveFailures++;
             
-            // Only logout after 3 consecutive failures to avoid logout on temporary issues
-            if (consecutiveFailures >= 3) {
+            // Only logout after 5 consecutive failures to avoid logout on temporary issues
+            if (consecutiveFailures >= 5) {
               handleLogout();
               alert('Your session has expired. Please login again.');
             }
@@ -110,13 +112,13 @@ function App() {
         } catch (err) {
           consecutiveFailures++;
           
-          // Only logout after 3 consecutive failures
-          if (consecutiveFailures >= 3) {
+          // Only logout after 5 consecutive failures
+          if (consecutiveFailures >= 5) {
             handleLogout();
             alert('Your session has expired. Please login again.');
           }
         }
-      }, 120000); // 2 minutes
+      }, 300000); // 5 minutes instead of 2 minutes
     }
   };
 

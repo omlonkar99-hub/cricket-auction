@@ -18,21 +18,72 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// teamSessions stores the current valid token per teamId. When admin changes a team's code, we invalidate that team's session.
+// Session with timestamp for expiration
+type SessionInfo struct {
+	Token     string
+	CreatedAt time.Time
+	LastUsed  time.Time
+}
+
+// teamSessions stores the current valid session per teamId
 var (
-	teamSessions   = make(map[int64]string)
+	teamSessions   = make(map[int64]*SessionInfo)
 	teamSessionsMux sync.RWMutex
 	
-	// adminSessions stores the current valid token per admin username
-	adminSessions   = make(map[string]string)
+	// adminSessions stores the current valid session per admin username
+	adminSessions   = make(map[string]*SessionInfo)
 	adminSessionsMux sync.RWMutex
+	
+	// Session expiration times
+	adminSessionExpiry = 24 * time.Hour  // 24 hours for admin
+	teamSessionExpiry  = 8 * time.Hour   // 8 hours for teams
 )
 
-// RegisterTeamSession stores the token for this team; only one session per team (new login replaces old).
+// Initialize session cleanup
+func init() {
+	// Clean up expired sessions every hour
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			cleanupExpiredSessions()
+		}
+	}()
+}
+
+// Clean up expired sessions
+func cleanupExpiredSessions() {
+	now := time.Now()
+	
+	// Clean team sessions
+	teamSessionsMux.Lock()
+	for teamId, session := range teamSessions {
+		if now.Sub(session.LastUsed) > teamSessionExpiry {
+			delete(teamSessions, teamId)
+		}
+	}
+	teamSessionsMux.Unlock()
+	
+	// Clean admin sessions
+	adminSessionsMux.Lock()
+	for username, session := range adminSessions {
+		if now.Sub(session.LastUsed) > adminSessionExpiry {
+			delete(adminSessions, username)
+		}
+	}
+	adminSessionsMux.Unlock()
+}
+
+// RegisterTeamSession stores the session for this team
 func RegisterTeamSession(teamId int64, token string) {
 	teamSessionsMux.Lock()
 	defer teamSessionsMux.Unlock()
-	teamSessions[teamId] = token
+	now := time.Now()
+	teamSessions[teamId] = &SessionInfo{
+		Token:     token,
+		CreatedAt: now,
+		LastUsed:  now,
+	}
 }
 
 // InvalidateTeamSession removes the team's session so they must log in again with the new code.
@@ -44,16 +95,35 @@ func InvalidateTeamSession(teamId int64) {
 
 // ValidateTeamSession returns true if the token is the current valid session for this team.
 func ValidateTeamSession(teamId int64, token string) bool {
-	teamSessionsMux.RLock()
-	defer teamSessionsMux.RUnlock()
-	return teamSessions[teamId] == token
+	teamSessionsMux.Lock()
+	defer teamSessionsMux.Unlock()
+	
+	session, exists := teamSessions[teamId]
+	if !exists || session.Token != token {
+		return false
+	}
+	
+	// Check if session is expired
+	if time.Since(session.LastUsed) > teamSessionExpiry {
+		delete(teamSessions, teamId)
+		return false
+	}
+	
+	// Update last used time
+	session.LastUsed = time.Now()
+	return true
 }
 
 // RegisterAdminSession stores the token for this admin
 func RegisterAdminSession(username string, token string) {
 	adminSessionsMux.Lock()
 	defer adminSessionsMux.Unlock()
-	adminSessions[username] = token
+	now := time.Now()
+	adminSessions[username] = &SessionInfo{
+		Token:     token,
+		CreatedAt: now,
+		LastUsed:  now,
+	}
 }
 
 // InvalidateAdminSession removes the admin's session so they must log in again
@@ -65,9 +135,23 @@ func InvalidateAdminSession(username string) {
 
 // ValidateAdminSession returns true if the token is the current valid session for this admin
 func ValidateAdminSession(username string, token string) bool {
-	adminSessionsMux.RLock()
-	defer adminSessionsMux.RUnlock()
-	return adminSessions[username] == token
+	adminSessionsMux.Lock()
+	defer adminSessionsMux.Unlock()
+	
+	session, exists := adminSessions[username]
+	if !exists || session.Token != token {
+		return false
+	}
+	
+	// Check if session is expired
+	if time.Since(session.LastUsed) > adminSessionExpiry {
+		delete(adminSessions, username)
+		return false
+	}
+	
+	// Update last used time
+	session.LastUsed = time.Now()
+	return true
 }
 
 type Admin struct {
