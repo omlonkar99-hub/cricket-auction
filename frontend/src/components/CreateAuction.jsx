@@ -59,15 +59,30 @@ export default function CreateAuction(props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      
       if (res.ok) {
         const created = await res.json();
         props.onBack();
       } else {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || err.message || 'Failed to save auction');
+        // Handle different response types
+        let errorMessage = 'Failed to save auction';
+        const contentType = res.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            const err = await res.json();
+            errorMessage = err.error || err.message || errorMessage;
+          } catch (e) {
+            // JSON parsing failed, use default message
+          }
+        } else {
+          // Non-JSON response (likely HTML error page)
+          errorMessage = `Server error (${res.status}): ${res.statusText}`;
+        }
+        
+        throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   };
