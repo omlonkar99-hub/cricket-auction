@@ -183,32 +183,23 @@ func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 		
-		// Explicitly allow your frontend domains
-		allowedOrigins := []string{
-			"http://localhost:3000",
-			"https://cricketive-auction.onrender.com",
-			"https://cricketive.vercel.app",
+		// Always set CORS headers for your frontend
+		if origin == "https://cricketive-auction.onrender.com" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		} else if origin == "http://localhost:3000" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		} else if strings.HasSuffix(origin, ".vercel.app") {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		} else if strings.HasSuffix(origin, ".onrender.com") {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 		
-		// Check explicit origins first
-		for _, allowedOrigin := range allowedOrigins {
-			if origin == allowedOrigin {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				break
-			}
-		}
-		
-		// Fallback: allow any .vercel.app or .onrender.com domain
-		if w.Header().Get("Access-Control-Allow-Origin") == "" {
-			if strings.HasSuffix(origin, ".vercel.app") || strings.HasSuffix(origin, ".onrender.com") {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-			}
-		}
-		
+		// Always set these headers
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
+		// Handle preflight requests
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
