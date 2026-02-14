@@ -27,18 +27,21 @@ export function useAuctionWebSocketSolid(auctionId) {
     const connect = () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       
-      // Use environment variables for production
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || `${window.location.protocol}//${window.location.hostname}`;
-      const backendPort = import.meta.env.VITE_BACKEND_PORT || '8080';
+      // Use same logic as API utility
+      const isProduction = typeof window !== 'undefined' && 
+                          (window.location.hostname === 'cricketive.vercel.app' || 
+                           window.location.hostname.includes('vercel.app'));
       
       let wsUrl;
-      if (import.meta.env.PROD) {
-        // Production: Use backend URL directly (Render uses standard ports)
-        const cleanUrl = backendUrl.replace(/^https?:\/\//, '');
-        wsUrl = `${protocol}//${cleanUrl}/api/auctions/${auctionIdStr}/ws`;
+      if (isProduction) {
+        // Production: Use hardcoded backend URL
+        wsUrl = `${protocol}//auction-backend-l24v.onrender.com/api/auctions/${auctionIdStr}/ws`;
+        console.log('🚀 WebSocket PRODUCTION:', wsUrl);
       } else {
         // Development: Use localhost with port
+        const backendPort = import.meta.env.VITE_BACKEND_PORT || '8080';
         wsUrl = `${protocol}//${window.location.hostname}:${backendPort}/api/auctions/${auctionIdStr}/ws`;
+        console.log('🔧 WebSocket DEVELOPMENT:', wsUrl);
       }
       
       ws = new WebSocket(wsUrl);
