@@ -1,5 +1,5 @@
 import { createSignal, onMount, For, Show } from 'solid-js';
-import { apiCall } from '../utils/api';
+import { apiCall } from '../../utils/api';
 
 export default function TeamSelection(props) {
   const [allTeams, setAllTeams] = createSignal([]);
