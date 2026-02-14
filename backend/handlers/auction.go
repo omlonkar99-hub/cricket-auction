@@ -294,8 +294,11 @@ func CreateAuction(w http.ResponseWriter, r *http.Request) {
 		PlayerOrder         map[string][]string  `json:"playerOrder"`         // Accept as strings
 	}
 	
+	w.Header().Set("Content-Type", "application/json")
+	
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid JSON: " + err.Error()})
 		return
 	}
 
@@ -304,7 +307,8 @@ func CreateAuction(w http.ResponseWriter, r *http.Request) {
 	for i, idStr := range req.SelectedTeams {
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
-			http.Error(w, "Invalid team ID: "+idStr, http.StatusBadRequest)
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Invalid team ID: " + idStr})
 			return
 		}
 		selectedTeams[i] = id
@@ -314,7 +318,8 @@ func CreateAuction(w http.ResponseWriter, r *http.Request) {
 	for i, idStr := range req.SelectedPlayers {
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
-			http.Error(w, "Invalid player ID: "+idStr, http.StatusBadRequest)
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Invalid player ID: " + idStr})
 			return
 		}
 		selectedPlayers[i] = id
@@ -326,7 +331,8 @@ func CreateAuction(w http.ResponseWriter, r *http.Request) {
 		for i, idStr := range idStrs {
 			id, err := strconv.ParseInt(idStr, 10, 64)
 			if err != nil {
-				http.Error(w, "Invalid player ID in playerOrder: "+idStr, http.StatusBadRequest)
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]string{"error": "Invalid player ID in playerOrder: " + idStr})
 				return
 			}
 			ids[i] = id
@@ -369,13 +375,15 @@ func CreateAuction(w http.ResponseWriter, r *http.Request) {
 
 	// Save to DB (synchronous so errors surface)
 	if config.DB == nil {
-		http.Error(w, "Database not connected", http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Database not connected"})
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if _, err := config.GetCollection("auctions").InsertOne(ctx, auction); err != nil {
-		http.Error(w, "Failed to create auction", http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create auction: " + err.Error()})
 		return
 	}
 
@@ -385,7 +393,6 @@ func CreateAuction(w http.ResponseWriter, r *http.Request) {
 	ipAddress := r.RemoteAddr
 	LogAuditEvent("admin", "CREATE_AUCTION", strconv.FormatInt(auction.ID, 10), auction.Name, "Created auction: "+auction.Name, ipAddress)
 
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(auction)
 }
 
