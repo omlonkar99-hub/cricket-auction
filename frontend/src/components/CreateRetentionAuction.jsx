@@ -1,4 +1,5 @@
 import { createSignal, Show, For, onMount } from 'solid-js';
+import { apiCall } from '../utils/api';
 
 export default function CreateRetentionAuction(props) {
   const [currentStep, setCurrentStep] = createSignal(1);
@@ -44,9 +45,9 @@ export default function CreateRetentionAuction(props) {
   const fetchData = async () => {
     try {
       const [auctionsRes, teamsRes, playersRes] = await Promise.all([
-        fetch('/api/auctions?status=completed'),
-        fetch('/api/teams'),
-        fetch('/api/players')
+        apiCall('/api/auctions?status=completed'),
+        apiCall('/api/teams'),
+        apiCall('/api/players')
       ]);
 
       const auctions = await auctionsRes.json();
@@ -148,7 +149,7 @@ export default function CreateRetentionAuction(props) {
         sourceAuctionId: creationPath() === 'past' ? formData().sourceAuctionId : null
       };
 
-      const res = await fetch('/api/retention-auctions', {
+      const res = await apiCall('/api/retention-auctions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -401,7 +402,7 @@ function Step2aPastAuctionSelection(props) {
     
     // Fetch auction details
     try {
-      const res = await fetch(`/api/auctions/${auctionId}/results`);
+      const res = await apiCall(`/api/auctions/${auctionId}/results`);
       const data = await res.json();
       props.setSelectedAuctionData(data);
       

@@ -1,4 +1,5 @@
 import { createSignal, onMount, Show, For, createEffect } from 'solid-js';
+import { apiCall } from '../utils/api';
 
 // Auction Summary Component
 export default function AuctionSummary(props) {
@@ -14,7 +15,7 @@ export default function AuctionSummary(props) {
 
   const fetchAuctionData = async () => {
     try {
-      const res = await fetch(`/api/auctions/${props.auctionId}/results`);
+      const res = await apiCall(`/api/auctions/${props.auctionId}/results`);
       const data = await res.json();
       
       // Build complete player list with status from teamSquads
@@ -258,7 +259,7 @@ export default function AuctionSummary(props) {
   
   const fetchTradeWindow = async () => {
     try {
-      const res = await fetch(`/api/auctions/${props.auctionId}/trade-window`);
+      const res = await apiCall(`/api/auctions/${props.auctionId}/trade-window`);
       if (res.ok) {
         const data = await res.json();
         setTradeWindow(data);
@@ -610,7 +611,7 @@ function TradeSection(props) {
 
   const fetchTrades = async () => {
     try {
-      const res = await fetch(`/api/auctions/${props.auctionId}/trades`);
+      const res = await apiCall(`/api/auctions/${props.auctionId}/trades`);
       const data = await res.json();
       setTrades(data || []);
     } catch (error) {
@@ -620,7 +621,7 @@ function TradeSection(props) {
 
   const startTradeWindow = async () => {
     try {
-      const res = await fetch(`/api/auctions/${props.auctionId}/trade-window/start`, {
+      const res = await apiCall(`/api/auctions/${props.auctionId}/trade-window/start`, {
         method: 'POST'
       });
       if (res.ok) {
@@ -651,7 +652,7 @@ function TradeSection(props) {
       return;
     }
     try {
-      const res = await fetch(`/api/auctions/${props.auctionId}/trade-window/end`, {
+      const res = await apiCall(`/api/auctions/${props.auctionId}/trade-window/end`, {
         method: 'POST'
       });
       if (res.ok) {
@@ -740,7 +741,7 @@ function TradeSection(props) {
         message: message()
       };
       
-      const res = await fetch('/api/auctions/trade', {
+      const res = await apiCall('/api/auctions/trade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -779,7 +780,7 @@ function TradeSection(props) {
     }
     
     try {
-      const res = await fetch(`/api/auctions/trade/${tradeId}/accept`, {
+      const res = await apiCall(`/api/auctions/trade/${tradeId}/accept`, {
         method: 'POST'
       });
 
@@ -804,7 +805,7 @@ function TradeSection(props) {
     }
     
     try {
-      const res = await fetch(`/api/auctions/trade/${tradeId}/reject`, {
+      const res = await apiCall(`/api/auctions/trade/${tradeId}/reject`, {
         method: 'POST'
       });
 
@@ -826,7 +827,7 @@ function TradeSection(props) {
     }
     
     try {
-      const res = await fetch(`/api/auctions/trade/${tradeId}/cancel`, {
+      const res = await apiCall(`/api/auctions/trade/${tradeId}/cancel`, {
         method: 'POST'
       });
 

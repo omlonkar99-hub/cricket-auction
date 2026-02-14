@@ -2,6 +2,7 @@ import { createSignal, onMount, Show } from 'solid-js';
 import RetentionWaitingRoom from './RetentionWaitingRoom';
 import RetentionWindow from './RetentionWindow';
 import RetentionReview from './RetentionReview';
+import { apiCall } from '../utils/api';
 
 export default function RetentionAuctionContainer(props) {
   const [auction, setAuction] = createSignal(null);
@@ -16,7 +17,7 @@ export default function RetentionAuctionContainer(props) {
 
   const fetchAuction = async () => {
     try {
-      const res = await fetch(`/api/retention-auctions/${props.auctionId}`);
+      const res = await apiCall(`/api/retention-auctions/${props.auctionId}`);
       
       if (!res.ok) {
         console.error('Failed to fetch retention auction:', res.status, res.statusText);

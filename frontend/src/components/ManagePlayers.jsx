@@ -1,4 +1,5 @@
 import { createSignal, onMount, Show, For } from 'solid-js';
+import { apiCall } from '../utils/api';
 
 export default function ManagePlayers(props) {
   const [players, setPlayers] = createSignal([]);
@@ -32,7 +33,7 @@ export default function ManagePlayers(props) {
 
   const fetchPlayers = async () => {
     try {
-      const res = await fetch('/api/players');
+      const res = await apiCall('/api/players');
       const data = await res.json();
       setPlayers(data || []);
     } catch (error) {
@@ -169,7 +170,7 @@ export default function ManagePlayers(props) {
         formData.append('image', imageFile());
         formData.append('folder', 'players');
 
-        const uploadRes = await fetch('/api/upload', {
+        const uploadRes = await apiCall('/api/upload', {
           method: 'POST',
           body: formData
         });
@@ -217,7 +218,7 @@ export default function ManagePlayers(props) {
     if (!confirm(`Delete player "${name}"?`)) return;
     
     try {
-      const res = await fetch(`/api/players/${id}`, { method: 'DELETE' });
+      const res = await apiCall(`/api/players/${id}`, { method: 'DELETE' });
       if (res.ok) {
         await fetchPlayers();
       }

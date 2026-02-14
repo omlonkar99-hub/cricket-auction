@@ -1,4 +1,5 @@
 import { createSignal, createEffect, onMount, onCleanup, Show, For } from 'solid-js';
+import { apiCall } from '../utils/api';
 
 export default function AuctionWaitingRoom(props) {
   const [onlineTeams, setOnlineTeams] = createSignal([]);
@@ -32,7 +33,7 @@ export default function AuctionWaitingRoom(props) {
     if (data.teams && data.teams.length > 0) {
       setResolvedTeams(data.teams);
     } else if (data.selectedTeams && data.selectedTeams.length > 0) {
-      fetch('/api/teams')
+      apiCall('/api/teams')
         .then(res => res.json())
         .then(all => {
           const filtered = (all || []).filter(t => data.selectedTeams.includes(t.id));
@@ -46,7 +47,7 @@ export default function AuctionWaitingRoom(props) {
     if (data.players && data.players.length > 0) {
       setResolvedPlayers(data.players);
     } else if (data.selectedPlayers && data.selectedPlayers.length > 0) {
-      fetch('/api/players')
+      apiCall('/api/players')
         .then(res => res.json())
         .then(all => {
           const filtered = (all || []).filter(p => data.selectedPlayers.includes(p.id));
@@ -71,7 +72,7 @@ export default function AuctionWaitingRoom(props) {
     if (!props.currentUser || props.currentUser.role !== 'team' || !props.currentUser.teamId) return;
     const id = props.auctionData?.id;
     if (!id) return;
-    fetch(`/api/auctions/${id}/presence`, {
+    apiCall(`/api/auctions/${id}/presence`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ teamId: props.currentUser.teamId })
@@ -81,7 +82,7 @@ export default function AuctionWaitingRoom(props) {
   const fetchPresence = () => {
     const id = props.auctionData?.id;
     if (!id) return;
-    fetch(`/api/auctions/${id}/presence`)
+    apiCall(`/api/auctions/${id}/presence`)
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data?.onlineTeamIds) setOnlineTeamIds(data.onlineTeamIds);

@@ -1,4 +1,5 @@
 import { createSignal, onMount, For, Show } from 'solid-js';
+import { apiCall } from '../utils/api';
 
 export default function TeamSelection(props) {
   const [allTeams, setAllTeams] = createSignal([]);
@@ -8,7 +9,7 @@ export default function TeamSelection(props) {
 
   onMount(async () => {
     try {
-      const res = await fetch('/api/teams');
+      const res = await apiCall('/api/teams');
       const data = await res.json();
       setAllTeams(data || []);
     } catch (error) {

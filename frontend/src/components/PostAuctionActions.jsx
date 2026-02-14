@@ -1,4 +1,5 @@
 import { createSignal, Show } from 'solid-js';
+import { apiCall } from '../utils/api';
 
 export default function PostAuctionActions(props) {
   const [selectedAction, setSelectedAction] = createSignal(null);
@@ -20,7 +21,7 @@ export default function PostAuctionActions(props) {
   const handleDuplicate = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/auctions/duplicate', {
+      const res = await apiCall('/api/auctions/duplicate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -45,7 +46,7 @@ export default function PostAuctionActions(props) {
   const handleRetention = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/auctions/retention', {
+      const res = await apiCall('/api/auctions/retention', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -71,7 +72,7 @@ export default function PostAuctionActions(props) {
   const handleTradeWindow = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/auctions/${props.auctionId}/trade-window/start`, {
+      const res = await apiCall(`/api/auctions/${props.auctionId}/trade-window/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

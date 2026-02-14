@@ -1,4 +1,5 @@
 import { createSignal, onMount, Show, For } from 'solid-js';
+import { apiCall } from '../utils/api';
 
 export default function RetentionReview(props) {
   const [reviewData, setReviewData] = createSignal(null);
@@ -43,7 +44,7 @@ export default function RetentionReview(props) {
 
   const fetchReviewData = async () => {
     try {
-      const res = await fetch(`/api/retention-auctions/${props.auctionId}/review`);
+      const res = await apiCall(`/api/retention-auctions/${props.auctionId}/review`);
       const data = await res.json();
       setReviewData(data);
     } catch (err) {
@@ -79,7 +80,7 @@ export default function RetentionReview(props) {
     setError('');
 
     try {
-      const res = await fetch(`/api/retention-auctions/${props.auctionId}/start-auction`, {
+      const res = await apiCall(`/api/retention-auctions/${props.auctionId}/start-auction`, {
         method: 'POST'
       });
 
@@ -104,7 +105,7 @@ export default function RetentionReview(props) {
     }
 
     try {
-      const res = await fetch(`/api/retention-auctions/${props.auctionId}/close`, {
+      const res = await apiCall(`/api/retention-auctions/${props.auctionId}/close`, {
         method: 'POST'
       });
 

@@ -1,4 +1,5 @@
 import { createSignal, onMount, Show, For } from 'solid-js';
+import { apiCall } from '../utils/api';
 
 export default function ManageTeams(props) {
   const [teams, setTeams] = createSignal([]);
@@ -22,7 +23,7 @@ export default function ManageTeams(props) {
 
   const fetchTeams = async () => {
     try {
-      const res = await fetch('/api/teams');
+      const res = await apiCall('/api/teams');
       const data = await res.json();
       // Teams are stored in newly added order (reverse chronological by ID)
       setTeams((data || []).sort((a, b) => b.id - a.id));
@@ -157,7 +158,7 @@ export default function ManageTeams(props) {
         formData.append('image', logoFile());
         formData.append('folder', 'teams');
 
-        const uploadRes = await fetch('/api/upload', {
+        const uploadRes = await apiCall('/api/upload', {
           method: 'POST',
           body: formData
         });
@@ -212,7 +213,7 @@ export default function ManageTeams(props) {
     if (!confirm('Delete this team?')) return;
     
     try {
-      const res = await fetch(`/api/teams/${id}`, { method: 'DELETE' });
+      const res = await apiCall(`/api/teams/${id}`, { method: 'DELETE' });
       if (res.ok) {
         await fetchTeams();
       }

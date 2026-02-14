@@ -1,4 +1,5 @@
 import { createSignal, onMount, onCleanup, Show, For } from 'solid-js';
+import { apiCall } from '../utils/api';
 
 export default function RetentionWindow(props) {
   const [auction, setAuction] = createSignal(null);
@@ -29,8 +30,8 @@ export default function RetentionWindow(props) {
       }
 
       const [auctionRes, playersRes] = await Promise.all([
-        fetch(`/api/retention-auctions/${props.auctionId}`),
-        fetch(`/api/retention-auctions/${props.auctionId}/team/${props.teamId}/players`)
+        apiCall(`/api/retention-auctions/${props.auctionId}`),
+        apiCall(`/api/retention-auctions/${props.auctionId}/team/${props.teamId}/players`)
       ]);
 
       if (!auctionRes.ok || !playersRes.ok) {
@@ -174,7 +175,7 @@ export default function RetentionWindow(props) {
         price: choice.price || 0
       }));
 
-      const res = await fetch('/api/retention-auctions/submit', {
+      const res = await apiCall('/api/retention-auctions/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

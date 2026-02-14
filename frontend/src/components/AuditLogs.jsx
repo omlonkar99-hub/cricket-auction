@@ -1,4 +1,5 @@
 import { createSignal, Show, For, onMount } from 'solid-js';
+import { apiCall } from '../utils/api';
 
 export default function AuditLogs(props) {
   const [logs, setLogs] = createSignal([]);
@@ -21,7 +22,7 @@ export default function AuditLogs(props) {
       if (filterAdmin()) params.append('adminUser', filterAdmin());
       if (filterAction()) params.append('action', filterAction());
 
-      const res = await fetch(`/api/audit/logs?${params}`, {
+      const res = await apiCall(`/api/audit/logs?${params}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -41,7 +42,7 @@ export default function AuditLogs(props) {
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem('authToken');
-      const res = await fetch('/api/audit/stats', {
+      const res = await apiCall('/api/audit/stats', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -166,7 +167,7 @@ export default function AuditLogs(props) {
 
     try {
       const token = localStorage.getItem('authToken');
-      const res = await fetch('/api/audit/logs', {
+      const res = await apiCall('/api/audit/logs', {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

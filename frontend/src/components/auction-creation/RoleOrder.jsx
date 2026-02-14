@@ -1,4 +1,5 @@
 import { createSignal, onMount, For, Show } from 'solid-js';
+import { apiCall } from '../utils/api';
 
 export default function RoleOrder(props) {
   const [roleOrder, setRoleOrder] = createSignal(props.data.roleOrder || ['Batsman', 'Bowler', 'All-rounder', 'Wicket-keeper']);
@@ -11,7 +12,7 @@ export default function RoleOrder(props) {
 
   onMount(async () => {
     try {
-      const res = await fetch('/api/players');
+      const res = await apiCall('/api/players');
       const data = await res.json();
       const players = data || [];
       setAllPlayers(players);

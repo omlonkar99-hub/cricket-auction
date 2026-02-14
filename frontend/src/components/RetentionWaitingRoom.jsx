@@ -1,4 +1,5 @@
 import { createSignal, onMount, onCleanup, Show } from 'solid-js';
+import { apiCall } from '../utils/api';
 
 export default function RetentionWaitingRoom(props) {
   const [timeRemaining, setTimeRemaining] = createSignal('');
@@ -15,7 +16,7 @@ export default function RetentionWaitingRoom(props) {
 
   const fetchAuctionDetails = async () => {
     try {
-      const res = await fetch(`/api/retention-auctions/${props.auctionId}`);
+      const res = await apiCall(`/api/retention-auctions/${props.auctionId}`);
       const data = await res.json();
       setAuction(data);
     } catch (err) {
@@ -30,7 +31,7 @@ export default function RetentionWaitingRoom(props) {
 
     setIsStarting(true);
     try {
-      const res = await fetch(`/api/retention-auctions/${props.auctionId}/start`, {
+      const res = await apiCall(`/api/retention-auctions/${props.auctionId}/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

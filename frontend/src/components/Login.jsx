@@ -1,4 +1,5 @@
 import { createSignal, Show } from 'solid-js';
+import { apiCall } from '../utils/api';
 
 export default function Login(props) {
   const [activeTab, setActiveTab] = createSignal('team');
@@ -14,7 +15,7 @@ export default function Login(props) {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/team-login', {
+      const res = await apiCall('/api/auth/team-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: teamCode().toUpperCase().trim() })
@@ -54,7 +55,7 @@ export default function Login(props) {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await apiCall('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

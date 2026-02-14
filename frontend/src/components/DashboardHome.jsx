@@ -5,6 +5,7 @@ import CreateAuction from './CreateAuction';
 import CreateRetentionAuction from './CreateRetentionAuction';
 import AdminSettings from './AdminSettings';
 import AuditLogs from './AuditLogs';
+import { apiCall } from '../utils/api';
 
 export default function DashboardHome(props) {
   const [currentView, setCurrentView] = createSignal('dashboard');
@@ -17,9 +18,9 @@ export default function DashboardHome(props) {
   const fetchData = async () => {
     try {
       const [teamsRes, playersRes, auctionsRes] = await Promise.all([
-        fetch('/api/teams'),
-        fetch('/api/players'),
-        fetch('/api/auctions')
+        apiCall('/api/teams'),
+        apiCall('/api/players'),
+        apiCall('/api/auctions')
       ]);
       setTeams(await teamsRes.json() || []);
       setPlayers(await playersRes.json() || []);
@@ -45,7 +46,7 @@ export default function DashboardHome(props) {
     const editId = sessionStorage.getItem('edit_auction_id');
     if (!editId) return;
     sessionStorage.removeItem('edit_auction_id');
-    fetch(`/api/auctions/${editId}`)
+    apiCall(`/api/auctions/${editId}`)
       .then(res => res.json())
       .then(data => {
         if (!data || !data.id) return;
@@ -71,7 +72,7 @@ export default function DashboardHome(props) {
     if (!confirm(`Delete auction "${name}"?`)) return;
     try {
       const auctionId = String(id);
-      const res = await fetch(`/api/auctions/${auctionId}`, { method: 'DELETE' });
+      const res = await apiCall(`/api/auctions/${auctionId}`, { method: 'DELETE' });
       if (res.ok) {
         fetchData();
       } else {

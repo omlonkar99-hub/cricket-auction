@@ -1,4 +1,5 @@
 import { createSignal, onMount, For, Show } from 'solid-js';
+import { apiCall } from '../utils/api';
 
 export default function ReviewAuction(props) {
   const [isCreating, setIsCreating] = createSignal(false);
@@ -8,8 +9,8 @@ export default function ReviewAuction(props) {
   onMount(async () => {
     try {
       const [teamsRes, playersRes] = await Promise.all([
-        fetch('/api/teams'),
-        fetch('/api/players')
+        apiCall('/api/teams'),
+        apiCall('/api/players')
       ]);
       setAllTeams(await teamsRes.json() || []);
       setAllPlayers(await playersRes.json() || []);
