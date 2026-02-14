@@ -19,3 +19,18 @@ services:
         sync: false
       - key: PORT
         value: 8080
+
+  - type: web
+    name: cricket-auction-frontend
+    env: node
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npx serve -s dist -l 3000
+    healthCheckPath: /
+    envVars:
+      - key: VITE_BACKEND_URL
+        value: https://cricket-auction-backend.onrender.com
+      - key: VITE_BACKEND_PORT
+        value: "443"
+      - key: NODE_VERSION
+        value: "18"

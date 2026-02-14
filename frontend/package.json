@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@hello-pangea/dnd": "^16.6.0",
-    "lightweight-charts": "^5.1.0"
+    "lightweight-charts": "^5.1.0",
+    "serve": "^14.2.1"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.17",

@@ -189,6 +189,9 @@ func corsMiddleware(next http.Handler) http.Handler {
 		} else if strings.HasSuffix(origin, ".vercel.app") {
 			// Allow any Vercel deployment
 			w.Header().Set("Access-Control-Allow-Origin", origin)
+		} else if strings.HasSuffix(origin, ".onrender.com") {
+			// Allow any Render deployment
+			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 		
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
