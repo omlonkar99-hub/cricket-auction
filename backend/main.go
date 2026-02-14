@@ -183,15 +183,26 @@ func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 		
-		// Allow localhost for development
-		if origin == "http://localhost:3000" {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-		} else if strings.HasSuffix(origin, ".vercel.app") {
-			// Allow any Vercel deployment
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-		} else if strings.HasSuffix(origin, ".onrender.com") {
-			// Allow any Render deployment
-			w.Header().Set("Access-Control-Allow-Origin", origin)
+		// Explicitly allow your frontend domains
+		allowedOrigins := []string{
+			"http://localhost:3000",
+			"https://cricketive-auction.onrender.com",
+			"https://cricketive.vercel.app",
+		}
+		
+		// Check explicit origins first
+		for _, allowedOrigin := range allowedOrigins {
+			if origin == allowedOrigin {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				break
+			}
+		}
+		
+		// Fallback: allow any .vercel.app or .onrender.com domain
+		if w.Header().Get("Access-Control-Allow-Origin") == "" {
+			if strings.HasSuffix(origin, ".vercel.app") || strings.HasSuffix(origin, ".onrender.com") {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+			}
 		}
 		
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")

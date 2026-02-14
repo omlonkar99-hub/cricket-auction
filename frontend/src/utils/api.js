@@ -1,12 +1,9 @@
 // API utility to handle different environments
 const getApiBaseUrl = () => {
-  // Check if we're in production (Vercel or Render)
+  // Always use the backend URL in production environments
   const isProduction = typeof window !== 'undefined' && 
-                      (window.location.hostname === 'cricketive.vercel.app' || 
-                       window.location.hostname === 'cricketive-git-main-happys-projects-7fca55f1.vercel.app' ||
-                       window.location.hostname === 'cricketive-auction.onrender.com' ||
-                       window.location.hostname.includes('vercel.app') ||
-                       window.location.hostname.includes('onrender.com'));
+                      (window.location.hostname !== 'localhost' && 
+                       window.location.hostname !== '127.0.0.1');
   
   if (isProduction) {
     const url = 'https://auction-backend-l24v.onrender.com';
@@ -14,7 +11,7 @@ const getApiBaseUrl = () => {
     return url;
   }
   
-  // Development
+  // Development - use proxy
   console.log('🔧 DEVELOPMENT: Using proxy');
   return '';
 };
