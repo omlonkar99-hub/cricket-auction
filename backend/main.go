@@ -180,10 +180,24 @@ func main() {
 
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Simple CORS - allow all origins temporarily for debugging
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		// Allow your actual frontend domains
+		origin := r.Header.Get("Origin")
+		allowedOrigins := []string{
+			"http://localhost:3000",
+			"https://cricketive.vercel.app",
+			"https://cricketive-git-main-happys-projects-7fca55f1.vercel.app",
+		}
+		
+		for _, allowedOrigin := range allowedOrigins {
+			if origin == allowedOrigin {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				break
+			}
+		}
+		
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
