@@ -183,14 +183,13 @@ func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 		
-		// Always set CORS headers for your frontend
+		// Allow your specific domains
 		if origin == "https://cricketive-auction.onrender.com" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		} else if origin == "http://localhost:3000" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
-		} else if strings.HasSuffix(origin, ".vercel.app") {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
 		} else if strings.HasSuffix(origin, ".onrender.com") {
+			// Allow any Render deployment
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 		
