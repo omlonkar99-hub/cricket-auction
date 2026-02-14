@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: cricket-auction-backend
+    name: auction-backend-l24v
     env: go
     rootDir: backend
     buildCommand: go build -o cricket-auction .
@@ -21,7 +21,7 @@ services:
         value: 8080
 
   - type: web
-    name: cricket-auction-frontend
+    name: cricketive-auction
     env: node
     rootDir: frontend
     buildCommand: npm install && npm run build
@@ -29,7 +29,7 @@ services:
     healthCheckPath: /
     envVars:
       - key: VITE_BACKEND_URL
-        value: https://cricket-auction-backend.onrender.com
+        value: https://auction-backend-l24v.onrender.com
       - key: VITE_BACKEND_PORT
         value: "443"
       - key: NODE_VERSION
