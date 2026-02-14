@@ -176,7 +176,7 @@ export default function ManageTeams(props) {
       const method = editingTeam() ? 'PUT' : 'POST';
       const url = editingTeam() ? `/api/teams/${editingTeam().id}` : '/api/teams';
 
-      const res = await fetch(url, {
+      const res = await apiCall(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

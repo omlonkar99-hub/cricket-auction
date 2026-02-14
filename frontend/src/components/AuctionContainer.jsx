@@ -1,4 +1,5 @@
 import { createSignal, onMount, onCleanup, Show } from 'solid-js';
+import { apiCall } from '../utils/api';
 import AuctionWaitingRoom from './AuctionWaitingRoom';
 import AuctionRoom from './AuctionRoom';
 import AuctionSummary from './AuctionSummary';
@@ -25,7 +26,7 @@ export default function AuctionContainer(props) {
 
   const fetchAuctionData = async () => {
     try {
-      const res = await fetch(`/api/auctions/${props.auctionId}`);
+      const res = await apiCall(`/api/auctions/${props.auctionId}`);
       if (!res.ok) {
         const text = await res.text().catch(() => '');
         setLoadError(text || 'Auction not found');
@@ -35,18 +36,15 @@ export default function AuctionContainer(props) {
       const data = await res.json();
       setAuctionData(data);
       setLoadError('');
-      
-      // Determine state based on auction status with strict priority: completed > live > waiting
-      // IMPORTANT: Check status first, then isLive flag
+
       if (data.status === 'completed') {
         // Auction is completed - show summary
         setAuctionState('completed');
       } else if (data.status === 'live' && data.isLive === true) {
-        // Auction is actively running - show live room
-        // Both status='live' AND isLive=true must be true
+
         setAuctionState('live');
       } else {
-        // Auction is draft or not started - show waiting room
+       
         setAuctionState('waiting');
       }
     } catch (error) {
@@ -58,14 +56,12 @@ export default function AuctionContainer(props) {
 
   const checkAuctionStatus = async () => {
     try {
-      const res = await fetch(`/api/auctions/${props.auctionId}/status`);
+      const res = await apiCall(`/api/auctions/${props.auctionId}/status`);
       if (!res.ok) return;
       const data = await res.json();
       
       const currentState = auctionState();
-      
-      // Strict priority: completed > live > waiting
-      // Check status field first, then isLive flag
+
       if (data.status === 'completed') {
         // Auction completed - switch to summary
         if (currentState !== 'completed') {
@@ -73,13 +69,12 @@ export default function AuctionContainer(props) {
           fetchAuctionData(); // Refresh to get final results
         }
       } else if (data.status === 'live' && data.isLive === true) {
-        // Auction is actively running - switch to live room
-        // Both status='live' AND isLive=true must be true
+
         if (currentState !== 'live') {
           setAuctionState('live');
         }
       } else {
-        // Auction is draft or not started - switch to waiting room
+ 
         if (currentState === 'live' || currentState === 'completed') {
           // State changed from live/completed back to waiting (shouldn't happen normally)
           setAuctionState('waiting');
@@ -87,13 +82,12 @@ export default function AuctionContainer(props) {
         }
       }
     } catch (error) {
-      // Silently fail to avoid disrupting UI
     }
   };
 
   const handleStartAuction = async () => {
     try {
-      const res = await fetch(`/api/auctions/${props.auctionId}/start`, {
+      const res = await apiCall(`/api/auctions/${props.auctionId}/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });

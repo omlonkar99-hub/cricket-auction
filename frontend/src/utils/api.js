@@ -7,20 +7,16 @@ const getApiBaseUrl = () => {
   
   if (isProduction) {
     const url = 'https://auction-backend-l24v.onrender.com';
-    console.log('🚀 PRODUCTION: Using backend URL:', url);
     return url;
   }
   
   // Development - use proxy
-  console.log('🔧 DEVELOPMENT: Using proxy');
   return '';
 };
 
 export const apiCall = async (endpoint, options = {}) => {
   const baseUrl = getApiBaseUrl();
   const url = `${baseUrl}${endpoint}`;
-  
-  console.log('📡 API Call:', url);
   
   return fetch(url, options);
 };

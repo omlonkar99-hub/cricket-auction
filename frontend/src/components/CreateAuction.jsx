@@ -1,4 +1,5 @@
 import { createSignal, Show } from 'solid-js';
+import { apiCall } from '../utils/api';
 import AuctionBasicInfo from './auction-creation/AuctionBasicInfo';
 import AuctionSettings from './auction-creation/AuctionSettings';
 import TeamSelection from './auction-creation/TeamSelection';
@@ -53,7 +54,7 @@ export default function CreateAuction(props) {
       const url = isEdit ? `/api/auctions/${payload.id}` : '/api/auctions';
       const method = isEdit ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
+      const res = await apiCall(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

@@ -187,7 +187,7 @@ export default function ManagePlayers(props) {
       const method = editingPlayer() ? 'PUT' : 'POST';
       const url = editingPlayer() ? `/api/players/${editingPlayer().id}` : '/api/players';
 
-      const res = await fetch(url, {
+      const res = await apiCall(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

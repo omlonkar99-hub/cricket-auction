@@ -79,7 +79,7 @@ export default function AuctionsPage(props) {
       const endpoint = auction.isRetention 
         ? `/api/retention-auctions/${auctionId}` 
         : `/api/auctions/${auctionId}`;
-      const res = await fetch(endpoint, { method: 'DELETE' });
+      const res = await apiCall(endpoint, { method: 'DELETE' });
       if (res.ok) {
         await fetchAuctions();
       } else {

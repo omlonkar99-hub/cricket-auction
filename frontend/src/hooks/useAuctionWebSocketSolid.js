@@ -37,12 +37,10 @@ export function useAuctionWebSocketSolid(auctionId) {
       if (isProduction) {
         // Production: Use hardcoded backend URL
         wsUrl = `${protocol}//auction-backend-l24v.onrender.com/api/auctions/${auctionIdStr}/ws`;
-        console.log('🚀 WebSocket PRODUCTION:', wsUrl);
       } else {
         // Development: Use localhost with port
         const backendPort = import.meta.env.VITE_BACKEND_PORT || '8080';
         wsUrl = `${protocol}//${window.location.hostname}:${backendPort}/api/auctions/${auctionIdStr}/ws`;
-        console.log('🔧 WebSocket DEVELOPMENT:', wsUrl);
       }
       
       ws = new WebSocket(wsUrl);

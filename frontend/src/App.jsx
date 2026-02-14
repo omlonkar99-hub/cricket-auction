@@ -71,7 +71,7 @@ function App() {
       
       const validate = async () => {
         try {
-          const res = await fetch(`/api/auth/team-validate?teamId=${teamId}`, {
+          const res = await apiCall(`/api/auth/team-validate?teamId=${teamId}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (res.status === 401) {

@@ -64,7 +64,7 @@ export default function AdminSettings(props) {
     setLoading(true);
     try {
       const token = localStorage.getItem('authToken');
-      const res = await fetch('/api/auth/change-password', {
+      const res = await apiCall('/api/auth/change-password', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -107,7 +107,7 @@ export default function AdminSettings(props) {
     setLoading(true);
     try {
       const token = localStorage.getItem('authToken');
-      const res = await fetch('/api/auth/admins', {
+      const res = await apiCall('/api/auth/admins', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -151,7 +151,7 @@ export default function AdminSettings(props) {
     setLoading(true);
     try {
       const token = localStorage.getItem('authToken');
-      const res = await fetch('/api/auth/change-password', {
+      const res = await apiCall('/api/auth/change-password', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -192,7 +192,7 @@ export default function AdminSettings(props) {
 
     try {
       const token = localStorage.getItem('authToken');
-      const res = await fetch('/api/auth/admins', {
+      const res = await apiCall('/api/auth/admins', {
         method: 'DELETE',
         headers: { 
           'Content-Type': 'application/json',
@@ -505,7 +505,7 @@ export default function AdminSettings(props) {
                 />
               </div>
 
-              <div>
+    r        <div>
                 <label class="block text-sm font-medium text-gray-400 mb-2">Password</label>
                 <input
                   type="password"
