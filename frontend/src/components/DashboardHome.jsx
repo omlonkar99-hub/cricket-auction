@@ -69,18 +69,42 @@ export default function DashboardHome(props) {
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Newest first
 
   const handleDeleteAuction = async (id, name) => {
-    if (!confirm(`Delete auction "${name}"?`)) return;
+    // Check if auction is live and show appropriate confirmation
+    const auction = auctions().find(a => a.id === id);
+    const isLive = auction?.status === 'live' || auction?.isLive;
+    
+    const confirmMessage = isLive 
+      ? `⚠️ WARNING: "${name}" is currently LIVE!\n\nDeleting will immediately stop the auction and disconnect all participants.\n\nAre you sure you want to delete this live auction?`
+      : `Delete auction "${name}"?`;
+    
+    if (!confirm(confirmMessage)) return;
+
     try {
       const auctionId = String(id);
       const res = await apiCall(`/api/auctions/${auctionId}`, { method: 'DELETE' });
       if (res.ok) {
         fetchData();
+        if (isLive) {
+          alert('Live auction stopped and deleted successfully');
+        }
       } else {
-        const text = await res.text();
-        alert(text || 'Cannot delete live auction');
+        const contentType = res.headers.get('content-type');
+        let errorMessage = 'Failed to delete auction';
+        
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            const errorData = await res.json();
+            errorMessage = errorData.error || errorMessage;
+          } catch (e) {
+            // JSON parsing failed, use default message
+          }
+        } else {
+          errorMessage = await res.text() || errorMessage;
+        }
+        
+        alert(errorMessage);
       }
     } catch (e) {
-      console.error('Delete error:', e);
       alert('Failed to delete');
     }
   };

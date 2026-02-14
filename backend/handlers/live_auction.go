@@ -711,6 +711,33 @@ func GetLiveAuction(auctionID int64) (*LiveAuction, bool) {
 	return auction, exists
 }
 
+// StopLiveAuction forcefully stops a live auction
+func StopLiveAuction(auctionID int64) {
+	liveAuctionsMux.Lock()
+	defer liveAuctionsMux.Unlock()
+
+	auction, exists := liveAuctions[auctionID]
+	if !exists {
+		return // Auction not live
+	}
+
+	// Stop the auction loop
+	auction.IsRunning = false
+	
+	// Send stop command through control channel (non-blocking)
+	select {
+	case auction.ControlChannel <- "stop":
+	default:
+		// Channel full or closed, auction is already stopping
+	}
+
+	// Clean up and remove from live auctions
+	auction.cleanup()
+	delete(liveAuctions, auctionID)
+	
+	log.Printf("Forcefully stopped live auction %d", auctionID)
+}
+
 // Helper functions
 func writeResultToDB(result AuctionResult) {
 	// Write to MongoDB Atlas (async, non-blocking)

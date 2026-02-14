@@ -1,5 +1,6 @@
 import { createSignal, onMount, Show, For } from 'solid-js';
 import { apiCall } from '../utils/api';
+import { smartCompress, getFileSizeInfo } from '../utils/imageCompressor';
 
 export default function ManagePlayers(props) {
   const [players, setPlayers] = createSignal([]);
@@ -100,7 +101,7 @@ export default function ManagePlayers(props) {
     setEditingPlayer(null);
   };
 
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -110,22 +111,45 @@ export default function ManagePlayers(props) {
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      setUploadError('Image must be less than 2MB');
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('Image must be less than 5MB');
       return;
     }
 
     setUploadError('');
-    setImageFile(file);
     
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result);
-    };
-    reader.readAsDataURL(file);
+    try {
+      // Show original file size
+      const originalSize = getFileSizeInfo(file);
+      setUploadError(`Compressing... (${originalSize.formatted})`);
+      
+      // Compress image
+      const compressedFile = await smartCompress(file);
+      const compressedSize = getFileSizeInfo(compressedFile);
+      
+      setImageFile(compressedFile);
+      
+      // Show compression result
+      if (compressedFile.size < file.size) {
+        setUploadError(`Compressed: ${originalSize.formatted} → ${compressedSize.formatted}`);
+        setTimeout(() => setUploadError(''), 2000);
+      } else {
+        setUploadError('');
+      }
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(compressedFile);
+    } catch (error) {
+      setUploadError('Image compression failed');
+      console.error('Compression error:', error);
+    }
   };
 
-  const handlePaste = (e) => {
+  const handlePaste = async (e) => {
     const items = e.clipboardData?.items;
     if (!items) return;
 
@@ -140,19 +164,42 @@ export default function ManagePlayers(props) {
           return;
         }
 
-        if (file.size > 2 * 1024 * 1024) {
-          setUploadError('Image must be less than 2MB');
+        if (file.size > 5 * 1024 * 1024) {
+          setUploadError('Image must be less than 5MB');
           return;
         }
 
         setUploadError('');
-        setImageFile(file);
         
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setImagePreview(reader.result);
-        };
-        reader.readAsDataURL(file);
+        try {
+          // Show original file size
+          const originalSize = getFileSizeInfo(file);
+          setUploadError(`Compressing... (${originalSize.formatted})`);
+          
+          // Compress image
+          const compressedFile = await smartCompress(file);
+          const compressedSize = getFileSizeInfo(compressedFile);
+          
+          setImageFile(compressedFile);
+          
+          // Show compression result
+          if (compressedFile.size < file.size) {
+            setUploadError(`Compressed: ${originalSize.formatted} → ${compressedSize.formatted}`);
+            setTimeout(() => setUploadError(''), 2000);
+          } else {
+            setUploadError('');
+          }
+          
+          // Create preview
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setImagePreview(reader.result);
+          };
+          reader.readAsDataURL(compressedFile);
+        } catch (error) {
+          setUploadError('Image compression failed');
+          console.error('Compression error:', error);
+        }
         break;
       }
     }
@@ -304,43 +351,43 @@ export default function ManagePlayers(props) {
             <For each={filteredPlayers()}>
               {(player) => (
                 <div 
-                  class="bg-[#1a1a1a] rounded-xl p-2 md:p-3 border border-gray-800 hover:border-emerald-500/50 transition-colors"
+                  class="bg-[#1a1a1a] rounded-xl p-2.5 md:p-3 border border-gray-800 hover:border-emerald-500/50 transition-colors"
                 >
-                  <div class="flex items-center gap-1.5 md:gap-3">
+                  <div class="flex items-start gap-2 md:gap-2.5">
                     <Show when={player.image} fallback={
-                      <div class="w-8 h-8 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-[10px] md:text-xs font-bold flex-shrink-0">
+                      <div class="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-[10px] md:text-xs font-bold flex-shrink-0">
                         {player.name.split(' ').map(n => n[0]).join('')}
                       </div>
                     }>
-                      <img src={player.image} alt={player.name} class="w-8 h-8 md:w-12 md:h-12 rounded-full object-cover flex-shrink-0" />
+                      <img src={player.image} alt={player.name} class="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover flex-shrink-0" />
                     </Show>
                     <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-1 mb-0.5">
-                        <h3 class="text-[11px] md:text-sm font-bold truncate">{player.name}</h3>
+                      <div class="flex items-start gap-1 mb-1">
+                        <h3 class="text-xs md:text-sm font-bold leading-tight" style="word-break: break-word; line-height: 1.2;">{player.name}</h3>
                         <Show when={player.isOverseas}>
-                          <span class="text-sm md:text-base flex-shrink-0">✈️</span>
+                          <span class="text-sm md:text-base flex-shrink-0 mt-0.5">✈️</span>
                         </Show>
                       </div>
                       <div class="flex items-center gap-1">
-                        <span class="text-[9px] md:text-xs text-gray-500">{player.role}</span>
-                        <span class="text-[9px] md:text-xs text-gray-600">•</span>
-                        <span class="text-[9px] md:text-xs font-semibold text-emerald-400">₹{player.basePrice}Cr</span>
+                        <span class="text-[10px] md:text-xs text-gray-500">{player.role}</span>
+                        <span class="text-[10px] md:text-xs text-gray-600">•</span>
+                        <span class="text-[10px] md:text-xs font-semibold text-emerald-400">₹{player.basePrice}Cr</span>
                       </div>
                     </div>
-                    <div class="flex gap-1 flex-shrink-0">
+                    <div class="flex flex-col gap-0.5 flex-shrink-0 ml-1">
                       <button
                         onClick={() => openModal(player)}
-                        class="p-1.5 md:p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                        class="p-1 md:p-1.5 hover:bg-gray-800 rounded-md transition-colors"
                       >
-                        <svg class="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-3 h-3 md:w-3.5 md:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </button>
                       <button
                         onClick={() => handleDelete(player.id, player.name)}
-                        class="p-1.5 md:p-2 hover:bg-red-500/10 text-red-400 rounded-lg transition-colors"
+                        class="p-1 md:p-1.5 hover:bg-red-500/10 text-red-400 rounded-md transition-colors"
                       >
-                        <svg class="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-3 h-3 md:w-3.5 md:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
@@ -466,7 +513,7 @@ export default function ManagePlayers(props) {
                     onChange={handleImageChange}
                     class="w-full px-2.5 py-1.5 bg-[#0f0f0f] border border-gray-800 rounded-lg text-white text-[10px] file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 file:cursor-pointer"
                   />
-                  <p class="text-[9px] text-gray-500">Max 2MB • JPEG, PNG, WebP</p>
+                  <p class="text-[9px] text-gray-500">Max 5MB • Auto-compressed • JPEG, PNG, WebP</p>
                   <Show when={uploadError()}>
                     <p class="text-[9px] text-red-400">{uploadError()}</p>
                   </Show>

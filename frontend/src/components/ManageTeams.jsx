@@ -1,5 +1,6 @@
 import { createSignal, onMount, Show, For } from 'solid-js';
 import { apiCall } from '../utils/api';
+import { smartCompress, getFileSizeInfo } from '../utils/imageCompressor';
 
 export default function ManageTeams(props) {
   const [teams, setTeams] = createSignal([]);
@@ -83,7 +84,7 @@ export default function ManageTeams(props) {
     setEditingTeam(null);
   };
 
-  const handleLogoChange = (e) => {
+  const handleLogoChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -94,24 +95,46 @@ export default function ManageTeams(props) {
       return;
     }
 
-    // Validate file size (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      setUploadError('Image size must be less than 2MB');
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('Image size must be less than 5MB');
       return;
     }
 
     setUploadError('');
-    setLogoFile(file);
     
-    // Create preview
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setLogoPreview(reader.result);
-    };
-    reader.readAsDataURL(file);
+    try {
+      // Show original file size
+      const originalSize = getFileSizeInfo(file);
+      setUploadError(`Compressing... (${originalSize.formatted})`);
+      
+      // Compress image
+      const compressedFile = await smartCompress(file);
+      const compressedSize = getFileSizeInfo(compressedFile);
+      
+      setLogoFile(compressedFile);
+      
+      // Show compression result
+      if (compressedFile.size < file.size) {
+        setUploadError(`Compressed: ${originalSize.formatted} → ${compressedSize.formatted}`);
+        setTimeout(() => setUploadError(''), 2000);
+      } else {
+        setUploadError('');
+      }
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoPreview(reader.result);
+      };
+      reader.readAsDataURL(compressedFile);
+    } catch (error) {
+      setUploadError('Image compression failed');
+      console.error('Compression error:', error);
+    }
   };
 
-  const handlePaste = (e) => {
+  const handlePaste = async (e) => {
     const items = e.clipboardData?.items;
     if (!items) return;
 
@@ -127,21 +150,43 @@ export default function ManageTeams(props) {
           return;
         }
 
-        // Validate file size (max 2MB)
-        if (file.size > 2 * 1024 * 1024) {
-          setUploadError('Image size must be less than 2MB');
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          setUploadError('Image size must be less than 5MB');
           return;
         }
 
         setUploadError('');
-        setLogoFile(file);
         
-        // Create preview
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setLogoPreview(reader.result);
-        };
-        reader.readAsDataURL(file);
+        try {
+          // Show original file size
+          const originalSize = getFileSizeInfo(file);
+          setUploadError(`Compressing... (${originalSize.formatted})`);
+          
+          // Compress image
+          const compressedFile = await smartCompress(file);
+          const compressedSize = getFileSizeInfo(compressedFile);
+          
+          setLogoFile(compressedFile);
+          
+          // Show compression result
+          if (compressedFile.size < file.size) {
+            setUploadError(`Compressed: ${originalSize.formatted} → ${compressedSize.formatted}`);
+            setTimeout(() => setUploadError(''), 2000);
+          } else {
+            setUploadError('');
+          }
+          
+          // Create preview
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setLogoPreview(reader.result);
+          };
+          reader.readAsDataURL(compressedFile);
+        } catch (error) {
+          setUploadError('Image compression failed');
+          console.error('Compression error:', error);
+        }
         break;
       }
     }
@@ -272,7 +317,7 @@ export default function ManageTeams(props) {
                 <div 
                   class="bg-[#1a1a1a] rounded-xl p-2.5 md:p-3 border border-gray-800 hover:border-emerald-500/50 transition-colors"
                 >
-                  <div class="flex items-center gap-2 md:gap-2.5">
+                  <div class="flex items-start gap-2 md:gap-2.5">
                     <Show when={team.logo} fallback={
                       <div 
                         class="w-11 h-11 md:w-12 md:h-12 rounded-full flex items-center justify-center text-xs md:text-sm font-bold flex-shrink-0"
@@ -284,7 +329,7 @@ export default function ManageTeams(props) {
                       <img src={team.logo} alt={team.name} class="w-11 h-11 md:w-12 md:h-12 rounded-full object-cover flex-shrink-0" />
                     </Show>
                     <div class="flex-1 min-w-0">
-                      <h3 class="text-xs md:text-sm font-bold leading-snug mb-0.5" style="word-break: break-word;">{team.name}</h3>
+                      <h3 class="text-xs md:text-sm font-bold leading-tight mb-1" style="word-break: break-word; line-height: 1.2;">{team.name}</h3>
                       <div class="flex items-center gap-1.5 text-[10px] md:text-xs">
                         <span class="font-semibold text-gray-300">{team.shortName}</span>
                         <Show when={team.code}>
@@ -312,7 +357,7 @@ export default function ManageTeams(props) {
                         </Show>
                       </div>
                     </div>
-                    <div class="flex flex-col gap-0.5 flex-shrink-0">
+                    <div class="flex flex-col gap-0.5 flex-shrink-0 ml-1">
                       <button
                         onClick={() => openModal(team)}
                         class="p-1 md:p-1.5 hover:bg-gray-800 rounded-md transition-colors"
@@ -494,7 +539,7 @@ export default function ManageTeams(props) {
                     onChange={handleLogoChange}
                     class="w-full px-2.5 py-1.5 bg-[#0f0f0f] border border-gray-800 rounded-lg text-white text-[10px] file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 file:cursor-pointer"
                   />
-                  <p class="text-[9px] text-gray-500">Max 2MB • JPEG, PNG, WebP</p>
+                  <p class="text-[9px] text-gray-500">Max 5MB • Auto-compressed • JPEG, PNG, WebP</p>
                   <Show when={uploadError()}>
                     <p class="text-[9px] text-red-400">{uploadError()}</p>
                   </Show>

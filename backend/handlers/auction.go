@@ -757,9 +757,13 @@ func UpdateAuction(w http.ResponseWriter, r *http.Request) {
 func DeleteAuction(w http.ResponseWriter, r *http.Request) {
 	id, ok := getAuctionID(r)
 	if !ok {
-		http.Error(w, "Invalid auction ID", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid auction ID"})
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
 
 	// If DB available, treat it as source of truth
 	if config.DB != nil {
@@ -769,14 +773,19 @@ func DeleteAuction(w http.ResponseWriter, r *http.Request) {
 		var existing Auction
 		err := config.GetCollection("auctions").FindOne(ctx, bson.M{"_id": id}).Decode(&existing)
 		if err == nil {
+			// If auction is live, stop it first
 			if existing.IsLive {
-				http.Error(w, "Cannot delete live auction", http.StatusBadRequest)
-				return
+				// Stop the live auction
+				StopLiveAuction(id)
+				log.Printf("Stopped live auction %d before deletion", id)
 			}
+			
 			if _, err := config.GetCollection("auctions").DeleteOne(ctx, bson.M{"_id": id}); err != nil {
-				http.Error(w, "Failed to delete auction", http.StatusInternalServerError)
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete auction from database"})
 				return
 			}
+			
 			// Remove from memory cache if present
 			for i := range auctions {
 				if auctions[i].ID == id {
@@ -784,6 +793,11 @@ func DeleteAuction(w http.ResponseWriter, r *http.Request) {
 					break
 				}
 			}
+			
+			// Log audit event
+			ipAddress := r.RemoteAddr
+			LogAuditEvent("admin", "DELETE_AUCTION", strconv.FormatInt(id, 10), existing.Name, "Deleted auction: "+existing.Name, ipAddress)
+			
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
@@ -794,9 +808,10 @@ func DeleteAuction(w http.ResponseWriter, r *http.Request) {
 
 	for i := range auctions {
 		if auctions[i].ID == id {
+			// If auction is live, stop it first
 			if auctions[i].IsLive {
-				http.Error(w, "Cannot delete live auction", http.StatusBadRequest)
-				return
+				StopLiveAuction(id)
+				log.Printf("Stopped live auction %d before deletion", id)
 			}
 			
 			// Log audit event before deletion
@@ -834,11 +849,18 @@ func DeleteAuction(w http.ResponseWriter, r *http.Request) {
 			}
 			trades = remainingTrades
 			
+			// Clean up presence data
+			auctionPresenceMux.Lock()
+			delete(auctionPresence, id)
+			auctionPresenceMux.Unlock()
+			
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 	}
-	http.Error(w, "Auction not found", http.StatusNotFound)
+	
+	w.WriteHeader(http.StatusNotFound)
+	json.NewEncoder(w).Encode(map[string]string{"error": "Auction not found"})
 }
 
 // DuplicateAuction creates a new auction with same settings but new budget
