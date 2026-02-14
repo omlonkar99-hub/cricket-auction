@@ -186,6 +186,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 			"http://localhost:3000",
 			"https://cricketive.vercel.app",
 			"https://cricketive-git-main-happys-projects-7fca55f1.vercel.app",
+			"https://cricketive-c06b0j1f1-happys-projects-7fca55f1.vercel.app",
 		}
 		
 		for _, allowedOrigin := range allowedOrigins {
