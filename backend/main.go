@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -180,20 +181,14 @@ func main() {
 
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Allow your actual frontend domains
 		origin := r.Header.Get("Origin")
-		allowedOrigins := []string{
-			"http://localhost:3000",
-			"https://cricketive.vercel.app",
-			"https://cricketive-git-main-happys-projects-7fca55f1.vercel.app",
-			"https://cricketive-c06b0j1f1-happys-projects-7fca55f1.vercel.app",
-		}
 		
-		for _, allowedOrigin := range allowedOrigins {
-			if origin == allowedOrigin {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				break
-			}
+		// Allow localhost for development
+		if origin == "http://localhost:3000" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		} else if strings.HasSuffix(origin, ".vercel.app") {
+			// Allow any Vercel deployment
+			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 		
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
