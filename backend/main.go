@@ -70,11 +70,23 @@ func main() {
 	
 	r := mux.NewRouter()
 
-	// Enable CORS
+	// Enable CORS for all routes
 	r.Use(corsMiddleware)
+	
+	// Handle OPTIONS requests for all routes
+	r.Methods("OPTIONS").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// CORS headers are already set by middleware
+		w.WriteHeader(http.StatusOK)
+	})
 
 	// API Routes
 	api := r.PathPrefix("/api").Subrouter()
+	
+	// Handle OPTIONS for all API routes
+	api.Methods("OPTIONS").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// CORS headers are already set by middleware
+		w.WriteHeader(http.StatusOK)
+	})
 	
 	// Teams
 	api.HandleFunc("/teams", handlers.GetTeams).Methods("GET")
@@ -183,6 +195,11 @@ func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 		
+		// Set CORS headers for all requests
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		
 		// Allow your specific domains
 		if origin == "https://cricketive-auction.onrender.com" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -192,11 +209,6 @@ func corsMiddleware(next http.Handler) http.Handler {
 			// Allow any Render deployment
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
-		
-		// Always set these headers
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 		// Handle preflight requests
 		if r.Method == "OPTIONS" {
