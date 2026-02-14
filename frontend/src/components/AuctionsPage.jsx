@@ -1,4 +1,5 @@
 import { createSignal, onMount, Show, For } from 'solid-js';
+import { apiCall } from '../utils/api.js';
 
 export default function AuctionsPage(props) {
   const [activeTab, setActiveTab] = createSignal('active');
@@ -14,8 +15,8 @@ export default function AuctionsPage(props) {
   const fetchAuctions = async () => {
     try {
       const [regularRes, retentionRes] = await Promise.all([
-        fetch('/api/auctions'),
-        fetch('/api/retention-auctions')
+        apiCall('/api/auctions'),
+        apiCall('/api/retention-auctions')
       ]);
       
       const regularData = await regularRes.json();

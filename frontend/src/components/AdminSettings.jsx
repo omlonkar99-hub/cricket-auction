@@ -1,4 +1,5 @@
 import { createSignal, Show, For, onMount } from 'solid-js';
+import { apiCall } from '../utils/api.js';
 
 export default function AdminSettings(props) {
   const [oldPassword, setOldPassword] = createSignal('');
@@ -34,7 +35,7 @@ export default function AdminSettings(props) {
   const fetchAdmins = async () => {
     try {
       const token = localStorage.getItem('authToken');
-      const res = await fetch('/api/auth/admins', {
+      const res = await apiCall('/api/auth/admins', {
         headers: { 'Authorization': token }
       });
       if (res.ok) {

@@ -1,4 +1,5 @@
 import { createSignal, createEffect, onMount, onCleanup, Show, Switch, Match } from 'solid-js';
+import { apiCall } from './utils/api.js';
 import Login from './components/Login';
 
 const ROUTE_KEY = 'app_route';
@@ -90,7 +91,7 @@ function App() {
       // Admin validation: less frequent, 3-failure tolerance
       sessionCheckInterval = setInterval(async () => {
         try {
-          const res = await fetch('/api/auth/validate', {
+          const res = await apiCall('/api/auth/validate', {
             headers: { 'Authorization': token }
           });
           
