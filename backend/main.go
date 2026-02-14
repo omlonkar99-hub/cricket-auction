@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -160,23 +161,42 @@ func main() {
 	api.HandleFunc("/audit/logs", handlers.DeleteAuditLogs).Methods("DELETE")
 	api.HandleFunc("/audit/stats", handlers.GetAuditStats).Methods("GET")
 
-	// Health check
-	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
-	}).Methods("GET")
+	// Health check for UptimeRobot
+	r.HandleFunc("/health", handlers.HealthCheck).Methods("GET")
+	api.HandleFunc("/health", handlers.HealthCheck).Methods("GET")
 	
 	// System health
 	api.HandleFunc("/system/health", handlers.GetSystemHealth).Methods("GET")
 
-	log.Println("[SERVER] Backend server starting on :8080")
-	log.Fatal(http.ListenAndServe(":8080", r))
+	// Get port from environment variable (Render sets this automatically)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" // Default for local development
+	}
+
+	log.Printf("[SERVER] Backend server starting on port %s", port)
+	log.Fatal(http.ListenAndServe(":"+port, r))
 }
 
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		// Allow your actual frontend URL and localhost
+		origin := r.Header.Get("Origin")
+		allowedOrigins := []string{
+			"http://localhost:3000",
+			"https://cricketive.vercel.app", // Your actual Vercel frontend
+		}
+		
+		for _, allowedOrigin := range allowedOrigins {
+			if origin == allowedOrigin {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				break
+			}
+		}
+		
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)

@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 )
 
 type AuctionHealth struct {
@@ -11,6 +12,17 @@ type AuctionHealth struct {
 	SoldPlayers   int     `json:"soldPlayers"`
 	UnsoldPlayers int     `json:"unsoldPlayers"`
 	TotalPlayers  int     `json:"totalPlayers"`
+}
+
+// Simple health check for UptimeRobot
+func HealthCheck(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":    "healthy",
+		"timestamp": time.Now().Format(time.RFC3339),
+		"service":   "cricket-auction-api",
+	})
 }
 
 func GetAuctionHealth(w http.ResponseWriter, r *http.Request) {

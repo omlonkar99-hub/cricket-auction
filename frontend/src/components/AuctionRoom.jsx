@@ -15,6 +15,9 @@ export default function AuctionRoom(props) {
 
   // Load admin's selected team from localStorage on mount
   onMount(() => {
+    // Start smart keepalive when entering auction room
+    enterAuctionRoom();
+    
     // Load admin team selection
     if (isAdmin()) {
       const storageKey = `admin_selected_team_${auctionId()}`;
@@ -50,7 +53,7 @@ export default function AuctionRoom(props) {
     }
   };
 
-  const { auctionState: liveState, isConnected, placeBid: sendBid, getNextBidAmount, sendControl, lastMessageTime, bidHistory, unsoldPlayers, soldPlayers, ping } = useAuctionWebSocketSolid(auctionId);
+  const { auctionState: liveState, isConnected, placeBid: sendBid, getNextBidAmount, sendControl, lastMessageTime, bidHistory, unsoldPlayers, soldPlayers, ping, enterAuctionRoom, leaveAuctionRoom } = useAuctionWebSocketSolid(auctionId);
 
   // Who is bidding: team-code user's team OR admin's chosen team (admin does not get team from login)
   const effectiveTeamId = () => {
@@ -186,6 +189,9 @@ export default function AuctionRoom(props) {
 
   // Cleanup timer on unmount
   onCleanup(() => {
+    // Stop keepalive when leaving auction room
+    leaveAuctionRoom();
+    
     // Clear any existing timers
     const warningTimer = bidWarningTimer();
     if (warningTimer) {

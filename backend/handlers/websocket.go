@@ -159,8 +159,8 @@ func handleClientMessages(conn *websocket.Conn, auction *LiveAuction) {
 		
 		// Process message
 		switch msg.Type {
-		case "ping":
-			// Respond to ping with pong
+		case "ping", "heartbeat":
+			// Respond to ping/heartbeat with pong
 			pongResponse := map[string]string{"type": "pong"}
 			data, _ := json.Marshal(pongResponse)
 			conn.WriteMessage(websocket.TextMessage, data)

@@ -14,6 +14,8 @@ export function useAuctionWebSocketSolid(auctionId) {
   let allPlayers = [];
   let pingInterval = null;
   let lastPingTime = 0;
+  let keepaliveInterval = null;
+  let isInAuctionRoom = false;
 
   onMount(() => {
     const currentAuctionId = auctionId();
@@ -24,22 +26,30 @@ export function useAuctionWebSocketSolid(auctionId) {
 
     const connect = () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      // Use environment variable or default to 8080 for backend port
+      
+      // Use environment variables for production
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || `${window.location.protocol}//${window.location.hostname}`;
       const backendPort = import.meta.env.VITE_BACKEND_PORT || '8080';
-      const wsUrl = `${protocol}//${window.location.hostname}:${backendPort}/api/auctions/${auctionIdStr}/ws`;
+      
+      let wsUrl;
+      if (import.meta.env.PROD) {
+        // Production: Use backend URL directly (Render uses standard ports)
+        const cleanUrl = backendUrl.replace(/^https?:\/\//, '');
+        wsUrl = `${protocol}//${cleanUrl}/api/auctions/${auctionIdStr}/ws`;
+      } else {
+        // Development: Use localhost with port
+        wsUrl = `${protocol}//${window.location.hostname}:${backendPort}/api/auctions/${auctionIdStr}/ws`;
+      }
+      
       ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
         setIsConnected(true);
         
-        // Start ping measurement every 3 seconds
-        if (pingInterval) clearInterval(pingInterval);
-        pingInterval = setInterval(() => {
-          if (ws && ws.readyState === WebSocket.OPEN) {
-            lastPingTime = Date.now();
-            ws.send(JSON.stringify({ type: 'ping' }));
-          }
-        }, 3000);
+        // Start smart keepalive only if in auction room
+        if (isInAuctionRoom) {
+          startSmartKeepalive();
+        }
       };
 
       ws.onerror = (error) => {
@@ -351,6 +361,7 @@ export function useAuctionWebSocketSolid(auctionId) {
   onCleanup(() => {
     if (reconnectTimeout) clearTimeout(reconnectTimeout);
     if (pingInterval) clearInterval(pingInterval);
+    if (keepaliveInterval) clearInterval(keepaliveInterval);
     if (ws) ws.close();
   });
 
@@ -374,5 +385,75 @@ export function useAuctionWebSocketSolid(auctionId) {
     }
   };
 
-  return { auctionState, isConnected, placeBid, getNextBidAmount, sendControl, lastMessageTime, bidHistory, unsoldPlayers, soldPlayers, ping };
+  // Smart keepalive system
+  const startSmartKeepalive = () => {
+    if (keepaliveInterval) clearInterval(keepaliveInterval);
+    
+    keepaliveInterval = setInterval(() => {
+      if (ws?.readyState === WebSocket.OPEN && isInAuctionRoom) {
+        lastPingTime = Date.now();
+        ws.send(JSON.stringify({ type: 'ping' }));
+      }
+    }, 25000); // Every 25 seconds - safely under 30s timeout
+  };
+
+  const enterAuctionRoom = () => {
+    isInAuctionRoom = true;
+    if (ws?.readyState === WebSocket.OPEN) {
+      startSmartKeepalive();
+    }
+  };
+
+  const leaveAuctionRoom = () => {
+    isInAuctionRoom = false;
+    if (keepaliveInterval) {
+      clearInterval(keepaliveInterval);
+      keepaliveInterval = null;
+    }
+  };
+
+  // Page visibility optimization
+  const handleVisibilityChange = () => {
+    if (!isInAuctionRoom) return;
+    
+    if (document.visibilityState === 'hidden') {
+      // Tab hidden - reduce frequency but don't stop
+      if (keepaliveInterval) {
+        clearInterval(keepaliveInterval);
+        keepaliveInterval = setInterval(() => {
+          if (ws?.readyState === WebSocket.OPEN && isInAuctionRoom) {
+            lastPingTime = Date.now();
+            ws.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, 45000); // Every 45 seconds when hidden
+      }
+    } else {
+      // Tab visible - resume normal frequency
+      if (isInAuctionRoom) startSmartKeepalive();
+    }
+  };
+
+  // Set up visibility change listener
+  onMount(() => {
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+  });
+
+  onCleanup(() => {
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  });
+
+  return { 
+    auctionState, 
+    isConnected, 
+    placeBid, 
+    getNextBidAmount, 
+    sendControl, 
+    lastMessageTime, 
+    bidHistory, 
+    unsoldPlayers, 
+    soldPlayers, 
+    ping,
+    enterAuctionRoom,
+    leaveAuctionRoom
+  };
 }

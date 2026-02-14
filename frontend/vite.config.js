@@ -14,5 +14,23 @@ export default defineConfig({
   },
   define: {
     'import.meta.env.VITE_BACKEND_PORT': JSON.stringify(process.env.VITE_BACKEND_PORT || '8080'),
+    'import.meta.env.VITE_BACKEND_URL': JSON.stringify(process.env.VITE_BACKEND_URL || 'http://localhost:8080'),
   },
+  build: {
+    // Optimize for production
+    minify: 'terser',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['solid-js'],
+          charts: ['lightweight-charts'],
+          dnd: ['@hello-pangea/dnd']
+        }
+      }
+    }
+  },
+  preview: {
+    port: 3000
+  }
 });
