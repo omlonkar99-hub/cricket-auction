@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Simple star icon -->
+  <path d="M16 4 L20 12 L28 12 L22 18 L24 26 L16 22 L8 26 L10 18 L4 12 L12 12 Z" 
+        fill="#d946ef" 
+        stroke="#d946ef" 
+        stroke-width="1"/>
+</svg>

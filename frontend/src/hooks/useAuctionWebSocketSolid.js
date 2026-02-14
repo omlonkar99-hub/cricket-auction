@@ -1,0 +1,378 @@
+import { createSignal, onMount, onCleanup } from 'solid-js';
+import { imagePreloader } from '../utils/imagePreloader';
+
+export function useAuctionWebSocketSolid(auctionId) {
+  const [auctionState, setAuctionState] = createSignal(null);
+  const [isConnected, setIsConnected] = createSignal(false);
+  const [lastMessageTime, setLastMessageTime] = createSignal(Date.now());
+  const [bidHistory, setBidHistory] = createSignal([]); // Track all bids and events
+  const [unsoldPlayers, setUnsoldPlayers] = createSignal([]); // Track unsold players
+  const [soldPlayers, setSoldPlayers] = createSignal([]); // Track sold players
+  const [ping, setPing] = createSignal(0); // Real WebSocket latency
+  let ws = null;
+  let reconnectTimeout = null;
+  let allPlayers = [];
+  let pingInterval = null;
+  let lastPingTime = 0;
+
+  onMount(() => {
+    const currentAuctionId = auctionId();
+    if (!currentAuctionId) return;
+
+    // Ensure ID is a string to avoid precision loss
+    const auctionIdStr = String(currentAuctionId);
+
+    const connect = () => {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      // Use environment variable or default to 8080 for backend port
+      const backendPort = import.meta.env.VITE_BACKEND_PORT || '8080';
+      const wsUrl = `${protocol}//${window.location.hostname}:${backendPort}/api/auctions/${auctionIdStr}/ws`;
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        setIsConnected(true);
+        
+        // Start ping measurement every 3 seconds
+        if (pingInterval) clearInterval(pingInterval);
+        pingInterval = setInterval(() => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            lastPingTime = Date.now();
+            ws.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, 3000);
+      };
+
+      ws.onerror = (error) => {
+        // Check if user is still logged in
+        const isLoggedIn = localStorage.getItem('authToken') !== null;
+        if (!isLoggedIn) {
+          if (ws) {
+            ws.close();
+            ws = null;
+          }
+          if (reconnectTimeout) {
+            clearTimeout(reconnectTimeout);
+            reconnectTimeout = null;
+          }
+        }
+      };
+
+      ws.onmessage = (event) => {
+        setLastMessageTime(Date.now()); // Track message time
+        
+        try {
+          // Validate event data before parsing
+          if (!event.data || typeof event.data !== 'string') {
+            return
+          }
+          
+          // Prevent parsing very large messages that could cause stack overflow
+          if (event.data.length > 100000) {
+            return
+          }
+          
+          const update = JSON.parse(event.data);
+          
+          // Validate update object
+          if (!update || typeof update !== 'object' || !update.type) {
+            return
+          }
+          
+          switch (update.type) {
+            case 'waiting':
+              // Auction not started yet, keep waiting
+              break;
+            case 'pong':
+              // Calculate real ping from pong response
+              if (lastPingTime > 0) {
+                const roundTripTime = Date.now() - lastPingTime;
+                setPing(prev => {
+                  if (prev === 0) return roundTripTime;
+                  // Smooth the ping value
+                  return Math.round(prev * 0.7 + roundTripTime * 0.3);
+                });
+              }
+              break;
+            case 'initial_state':
+            case 'state':
+              setAuctionState(update);
+              if (update.allPlayers) {
+                allPlayers = update.allPlayers;
+                const urls = (update.allPlayers || []).map((p) => p.image).filter(Boolean);
+                imagePreloader.preloadBatch(urls);
+              }
+              if (update.currentPlayer?.image) imagePreloader.preload(update.currentPlayer.image);
+              break;
+            case 'bid':
+              setAuctionState((prev) => prev && ({ 
+                ...prev, 
+                currentBid: update.currentBid, 
+                currentBidder: update.currentBidder, 
+                timer: update.timer,
+                timerDuration: update.timerDuration !== undefined ? update.timerDuration : prev.timerDuration,
+                isPaused: update.isPaused !== undefined ? update.isPaused : prev.isPaused,
+                playersLimit: update.playersLimit !== undefined ? update.playersLimit : prev.playersLimit,
+                overseasLimit: update.overseasLimit !== undefined ? update.overseasLimit : prev.overseasLimit,
+                teams: update.teams 
+              }));
+              // Add bid to history
+              if (update.currentBidder) {
+                setBidHistory((prev) => [...prev, {
+                  type: 'bid',
+                  team: update.currentBidder.name,
+                  teamShort: update.currentBidder.shortName,
+                  teamColor: update.currentBidder.color || '#8B5CF6',
+                  teamLogo: update.currentBidder.logo, // Add team logo
+                  amount: update.currentBid,
+                  timestamp: Date.now()
+                }]);
+              }
+              break;
+            case 'timer':
+              setAuctionState((prev) => {
+                if (!prev) return prev;
+                
+                return { 
+                  ...prev, 
+                  timer: update.timer,
+                  timerDuration: update.timerDuration !== undefined ? update.timerDuration : prev.timerDuration,
+                  isPaused: update.isPaused !== undefined ? update.isPaused : prev.isPaused,
+                  playersLimit: update.playersLimit !== undefined ? update.playersLimit : prev.playersLimit,
+                  overseasLimit: update.overseasLimit !== undefined ? update.overseasLimit : prev.overseasLimit,
+                  currentPlayer: update.currentPlayer || prev.currentPlayer,
+                  currentBid: update.currentBid !== undefined ? update.currentBid : prev.currentBid,
+                  currentBidder: update.currentBidder !== undefined ? update.currentBidder : prev.currentBidder,
+                  teams: update.teams || prev.teams
+                };
+              });
+              break;
+            case 'control':
+              setAuctionState((prev) => {
+                if (!prev) return prev;
+                
+                // Create new state with immediate pause/resume handling
+                const newState = { 
+                  ...prev, 
+                  isPaused: update.isPaused !== undefined ? update.isPaused : prev.isPaused,
+                  playersLimit: update.playersLimit !== undefined ? update.playersLimit : prev.playersLimit,
+                  overseasLimit: update.overseasLimit !== undefined ? update.overseasLimit : prev.overseasLimit,
+                  currentPlayer: update.currentPlayer || prev.currentPlayer,
+                  currentBid: update.currentBid !== undefined ? update.currentBid : prev.currentBid,
+                  currentBidder: update.currentBidder !== undefined ? update.currentBidder : prev.currentBidder,
+                  timer: update.timer !== undefined ? update.timer : prev.timer,
+                  timerDuration: update.timerDuration !== undefined ? update.timerDuration : prev.timerDuration,
+                  teams: update.teams || prev.teams
+                };
+                
+                // Track pause/resume state
+                if (update.isPaused !== undefined && update.isPaused !== prev.isPaused) {
+                  // State changed
+                }
+                
+                return newState;
+              });
+              break;
+            case 'next_player':
+              setAuctionState((prev) => prev && ({
+                ...prev,
+                currentPlayer: update.currentPlayer,
+                currentBid: update.currentBid,
+                currentBidder: null,
+                timer: update.timer,
+                timerDuration: update.timerDuration !== undefined ? update.timerDuration : prev.timerDuration,
+                isPaused: update.isPaused !== undefined ? update.isPaused : prev.isPaused,
+                playersLimit: update.playersLimit !== undefined ? update.playersLimit : prev.playersLimit,
+                overseasLimit: update.overseasLimit !== undefined ? update.overseasLimit : prev.overseasLimit,
+                teams: update.teams,
+                allPlayers: update.allPlayers || prev.allPlayers // Update allPlayers if provided
+              }));
+              // Update local allPlayers reference
+              if (update.allPlayers) {
+                allPlayers = update.allPlayers;
+              }
+              if (update.currentPlayer?.image) imagePreloader.preload(update.currentPlayer.image);
+              break;
+            case 'unsold_round_start':
+              // Unsold round started - update state with first unsold player
+              setAuctionState((prev) => prev && ({
+                ...prev,
+                currentPlayer: update.currentPlayer,
+                currentBid: update.currentBid,
+                currentBidder: null,
+                timer: update.timer,
+                playersLimit: update.playersLimit !== undefined ? update.playersLimit : prev.playersLimit,
+                overseasLimit: update.overseasLimit !== undefined ? update.overseasLimit : prev.overseasLimit,
+                teams: update.teams,
+                isUnsoldRound: true, // Flag to show unsold round indicator
+                allPlayers: update.allPlayers || prev.allPlayers // Update allPlayers if provided
+              }));
+              // Update local allPlayers reference
+              if (update.allPlayers) {
+                allPlayers = update.allPlayers;
+              }
+              if (update.currentPlayer?.image) imagePreloader.preload(update.currentPlayer.image);
+              // Add unsold round start message to bid history
+              setBidHistory((prev) => [...prev, {
+                type: 'unsold_round_start',
+                message: update.message || 'Unsold round started!',
+                timestamp: Date.now()
+              }]);
+              break;
+            case 'player_sold':
+              if (update.teams) setAuctionState((prev) => prev && ({ ...prev, teams: update.teams }));
+              // Update allPlayers if provided (contains updated player status)
+              if (update.allPlayers) {
+                setAuctionState((prev) => prev && ({ ...prev, allPlayers: update.allPlayers }));
+                allPlayers = update.allPlayers;
+              }
+              // Add sold message to history
+              const soldMsg = update.message || 'Player SOLD';
+              const soldMatch = soldMsg.match(/(.+) SOLD to (.+) for ₹(.+)/);
+              if (soldMatch) {
+                const [, playerName, teamName, price] = soldMatch;
+                // Find team color from teams
+                const soldTeam = update.teams?.find(t => t.name === teamName);
+                setBidHistory((prev) => [...prev, {
+                  type: 'sold',
+                  playerName,
+                  team: teamName,
+                  teamColor: soldTeam?.color || '#10B981',
+                  teamLogo: soldTeam?.logo, // Add team logo
+                  price: parseFloat(price),
+                  timestamp: Date.now()
+                }]);
+                // Add to sold players list
+                const player = allPlayers.find(p => p.name === playerName);
+                if (player) {
+                  setSoldPlayers((prev) => [...prev, player]);
+                  // Remove from unsold list if present (sold during unsold round)
+                  setUnsoldPlayers((prev) => prev.filter(p => p.id !== player.id));
+                }
+              }
+              break;
+            case 'player_unsold':
+              if (update.teams) setAuctionState((prev) => prev && ({ ...prev, teams: update.teams }));
+              // Update allPlayers if provided (contains updated player status)
+              if (update.allPlayers) {
+                setAuctionState((prev) => prev && ({ ...prev, allPlayers: update.allPlayers }));
+                allPlayers = update.allPlayers;
+              }
+              // Add unsold message to history
+              const unsoldMsg = update.message || 'Player UNSOLD';
+              const unsoldMatch = unsoldMsg.match(/(.+) is UNSOLD/);
+              if (unsoldMatch) {
+                const [, playerName] = unsoldMatch;
+                setBidHistory((prev) => [...prev, {
+                  type: 'unsold',
+                  playerName,
+                  timestamp: Date.now()
+                }]);
+                // Handle unsold player
+                const player = allPlayers.find(p => p.name === playerName);
+                if (player) {
+                  const currentState = auctionState();
+                  const isUnsoldRound = currentState?.isUnsoldRound;
+                  
+                  setUnsoldPlayers((prev) => {
+                    const alreadyUnsold = prev.some(p => p.id === player.id);
+                    
+                    if (isUnsoldRound && alreadyUnsold) {
+                      // During unsold round: player went unsold again, remove from list (processed)
+                      return prev.filter(p => p.id !== player.id);
+                    } else if (!alreadyUnsold) {
+                      // Main round: add to unsold list
+                      return [...prev, player];
+                    }
+                    
+                    return prev;
+                  });
+                }
+              }
+              break;
+            case 'auction_ended':
+              // Auction has ended - update state and stop reconnecting
+              setAuctionState((prev) => prev && ({ 
+                ...prev, 
+                isRunning: false,
+                status: 'completed'
+              }));
+              // Close WebSocket and prevent reconnection
+              if (reconnectTimeout) {
+                clearTimeout(reconnectTimeout);
+                reconnectTimeout = null;
+              }
+              if (ws) {
+                ws.close();
+                ws = null;
+              }
+              break;
+            case 'error':
+              if (window.showToast) window.showToast(update.message, 'error');
+              break;
+            default:
+              break;
+          }
+        } catch (e) {
+          // Prevent stack overflow by limiting error logging
+          if (!e.message?.includes('Maximum call stack size exceeded')) {
+            // Silent error - WebSocket parse error
+          }
+        }
+      };
+
+      ws.onclose = (event) => {
+        setIsConnected(false);
+        
+        // Don't reconnect if:
+        // 1. Auction is completed
+        // 2. User is logged out (check localStorage)
+        // 3. Close code indicates server rejection (1008 = policy violation, 1011 = server error)
+        const state = auctionState();
+        const isLoggedIn = localStorage.getItem('authToken') !== null;
+        const shouldNotReconnect = 
+          !isLoggedIn ||
+          (state && (state.status === 'completed' || state.isRunning === false)) ||
+          event.code === 1008 || 
+          event.code === 1011;
+        
+        if (shouldNotReconnect) {
+          if (!isLoggedIn) {
+            // User logged out
+          }
+        } else {
+          reconnectTimeout = setTimeout(connect, 2000);
+        }
+      };
+    };
+
+    connect();
+  });
+
+  onCleanup(() => {
+    if (reconnectTimeout) clearTimeout(reconnectTimeout);
+    if (pingInterval) clearInterval(pingInterval);
+    if (ws) ws.close();
+  });
+
+  const placeBid = (teamId, amount) => {
+    if (ws && ws.readyState === WebSocket.OPEN && teamId != null) {
+      const teamIdStr = String(teamId);
+      ws.send(JSON.stringify({ type: 'bid', teamId: teamIdStr, amount }));
+    }
+  };
+
+  const getNextBidAmount = (increment = 0.5) => {
+    const state = auctionState();
+    if (!state) return 0;
+    if (!state.currentBidder) return state.currentPlayer?.basePrice ?? 0;
+    return (state.currentBid || 0) + increment;
+  };
+
+  const sendControl = (command) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'control', command }));
+    }
+  };
+
+  return { auctionState, isConnected, placeBid, getNextBidAmount, sendControl, lastMessageTime, bidHistory, unsoldPlayers, soldPlayers, ping };
+}
