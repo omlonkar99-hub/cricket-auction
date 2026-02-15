@@ -133,18 +133,28 @@ func CreateTradeRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert string IDs to int64 only for storage
-	team1IDInt, _ := strconv.ParseInt(team1ID, 10, 64)
-	team2IDInt, _ := strconv.ParseInt(team2ID, 10, 64)
+	// Convert string IDs to int64 for comparison and storage
+	team1IDInt, err := strconv.ParseInt(team1ID, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid team1 ID format", http.StatusBadRequest)
+		return
+	}
+	team2IDInt, err := strconv.ParseInt(team2ID, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid team2 ID format", http.StatusBadRequest)
+		return
+	}
 
 	for _, playerIDStr := range req.Team1Players {
 		found := false
+		playerID, err := strconv.ParseInt(playerIDStr, 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid player ID format", http.StatusBadRequest)
+			return
+		}
+		
 		for _, p := range auction.Players {
-			playerIDMatch := fmt.Sprintf("%d", p.ID) == playerIDStr
-			teamIDMatch := fmt.Sprintf("%d", p.TeamID) == team1ID
-			statusMatch := p.Status == "sold"
-			
-			if playerIDMatch && teamIDMatch && statusMatch {
+			if p.ID == playerID && p.TeamID == team1IDInt && p.Status == "sold" {
 				found = true
 				break
 			}
@@ -157,12 +167,14 @@ func CreateTradeRequest(w http.ResponseWriter, r *http.Request) {
 
 	for _, playerIDStr := range req.Team2Players {
 		found := false
+		playerID, err := strconv.ParseInt(playerIDStr, 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid player ID format", http.StatusBadRequest)
+			return
+		}
+		
 		for _, p := range auction.Players {
-			playerIDMatch := fmt.Sprintf("%d", p.ID) == playerIDStr
-			teamIDMatch := fmt.Sprintf("%d", p.TeamID) == team2ID
-			statusMatch := p.Status == "sold"
-			
-			if playerIDMatch && teamIDMatch && statusMatch {
+			if p.ID == playerID && p.TeamID == team2IDInt && p.Status == "sold" {
 				found = true
 				break
 			}
@@ -178,10 +190,11 @@ func CreateTradeRequest(w http.ResponseWriter, r *http.Request) {
 		// Calculate overseas count for Team1 after trade
 		team1OverseasCount := 0
 		for _, p := range auction.Players {
-			if fmt.Sprintf("%d", p.TeamID) == team1ID && p.Status == "sold" {
+			if p.TeamID == team1IDInt && p.Status == "sold" {
 				isBeingTradedAway := false
 				for _, tradedIDStr := range req.Team1Players {
-					if fmt.Sprintf("%d", p.ID) == tradedIDStr {
+					tradedID, _ := strconv.ParseInt(tradedIDStr, 10, 64)
+					if p.ID == tradedID {
 						isBeingTradedAway = true
 						break
 					}
@@ -192,8 +205,9 @@ func CreateTradeRequest(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		for _, playerIDStr := range req.Team2Players {
+			playerID, _ := strconv.ParseInt(playerIDStr, 10, 64)
 			for _, p := range auction.Players {
-				if fmt.Sprintf("%d", p.ID) == playerIDStr && p.IsOverseas {
+				if p.ID == playerID && p.IsOverseas {
 					team1OverseasCount++
 					break
 				}
@@ -203,10 +217,11 @@ func CreateTradeRequest(w http.ResponseWriter, r *http.Request) {
 		// Calculate overseas count for Team2 after trade
 		team2OverseasCount := 0
 		for _, p := range auction.Players {
-			if fmt.Sprintf("%d", p.TeamID) == team2ID && p.Status == "sold" {
+			if p.TeamID == team2IDInt && p.Status == "sold" {
 				isBeingTradedAway := false
 				for _, tradedIDStr := range req.Team2Players {
-					if fmt.Sprintf("%d", p.ID) == tradedIDStr {
+					tradedID, _ := strconv.ParseInt(tradedIDStr, 10, 64)
+					if p.ID == tradedID {
 						isBeingTradedAway = true
 						break
 					}
@@ -217,8 +232,9 @@ func CreateTradeRequest(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		for _, playerIDStr := range req.Team1Players {
+			playerID, _ := strconv.ParseInt(playerIDStr, 10, 64)
 			for _, p := range auction.Players {
-				if fmt.Sprintf("%d", p.ID) == playerIDStr && p.IsOverseas {
+				if p.ID == playerID && p.IsOverseas {
 					team2OverseasCount++
 					break
 				}
@@ -229,7 +245,7 @@ func CreateTradeRequest(w http.ResponseWriter, r *http.Request) {
 		if team1OverseasCount > auction.OverseasLimit {
 			team1Name := ""
 			for _, t := range auction.Teams {
-				if fmt.Sprintf("%d", t.ID) == team1ID {
+				if t.ID == team1IDInt {
 					team1Name = t.Name
 					break
 				}
@@ -241,7 +257,7 @@ func CreateTradeRequest(w http.ResponseWriter, r *http.Request) {
 		if team2OverseasCount > auction.OverseasLimit {
 			team2Name := ""
 			for _, t := range auction.Teams {
-				if fmt.Sprintf("%d", t.ID) == team2ID {
+				if t.ID == team2IDInt {
 					team2Name = t.Name
 					break
 				}
@@ -320,15 +336,17 @@ func AcceptTradeRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Execute trade - swap team IDs (use string comparison)
+	// Execute trade - swap team IDs
 	for i := range auction.Players {
 		for _, playerIDStr := range trade.Team1Players {
-			if fmt.Sprintf("%d", auction.Players[i].ID) == playerIDStr {
+			playerID, _ := strconv.ParseInt(playerIDStr, 10, 64)
+			if auction.Players[i].ID == playerID {
 				auction.Players[i].TeamID = trade.Team2ID
 			}
 		}
 		for _, playerIDStr := range trade.Team2Players {
-			if fmt.Sprintf("%d", auction.Players[i].ID) == playerIDStr {
+			playerID, _ := strconv.ParseInt(playerIDStr, 10, 64)
+			if auction.Players[i].ID == playerID {
 				auction.Players[i].TeamID = trade.Team1ID
 			}
 		}
