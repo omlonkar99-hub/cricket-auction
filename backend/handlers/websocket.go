@@ -12,6 +12,9 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
+	HandshakeTimeout: 10 * time.Second,
+	ReadBufferSize:   1024,
+	WriteBufferSize:  1024,
 	CheckOrigin: func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
 		// Allow your specific domains
@@ -71,7 +74,11 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	
 	// Register client
 	auction.ClientsMux.Lock()
-	auction.Clients[conn] = true
+	clientConn := &ClientConn{
+		Conn:  conn,
+		Mutex: sync.Mutex{},
+	}
+	auction.Clients[conn] = clientConn
 	auction.ClientsMux.Unlock()
 	
 	// Send initial state
@@ -90,6 +97,9 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	data, _ := json.Marshal(initialState)
+	clientConn.Mutex.Lock()
+	conn.WriteMessage(websocket.TextMessage, data)
+	clientConn.Mutex.Unlock()
 	conn.WriteMessage(websocket.TextMessage, data)
 	
 	// Listen for messages from this client
@@ -113,7 +123,11 @@ func waitForAuctionStart(conn *websocket.Conn, auctionID int64) {
 			if exists {
 				// Auction started! Register client and send initial state
 				auction.ClientsMux.Lock()
-				auction.Clients[conn] = true
+				clientConn := &ClientConn{
+					Conn:  conn,
+					Mutex: sync.Mutex{},
+				}
+				auction.Clients[conn] = clientConn
 				auction.ClientsMux.Unlock()
 				
 				// Send initial state
@@ -132,7 +146,9 @@ func waitForAuctionStart(conn *websocket.Conn, auctionID int64) {
 				}
 				
 				data, _ := json.Marshal(initialState)
+				clientConn.Mutex.Lock()
 				conn.WriteMessage(websocket.TextMessage, data)
+				clientConn.Mutex.Unlock()
 				
 				// Start listening for messages
 				handleClientMessages(conn, auction)
@@ -151,9 +167,54 @@ func handleClientMessages(conn *websocket.Conn, auction *LiveAuction) {
 	defer func() {
 		// Unregister client on disconnect
 		auction.ClientsMux.Lock()
-		delete(auction.Clients, conn)
+		if clientConn, exists := auction.Clients[conn]; exists {
+			clientConn.Conn.Close()
+			delete(auction.Clients, conn)
+		}
 		auction.ClientsMux.Unlock()
-		conn.Close()
+	}()
+	
+	// Get the client connection wrapper
+	auction.ClientsMux.RLock()
+	clientConn, exists := auction.Clients[conn]
+	auction.ClientsMux.RUnlock()
+	
+	if !exists {
+		return
+	}
+	
+	// Set read deadline for detecting dead connections
+	conn.SetReadDeadline(time.Now().Add(90 * time.Second))
+	
+	// Set pong handler to reset read deadline
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(90 * time.Second))
+		return nil
+	})
+	
+	// Start ping ticker to keep connection alive
+	pingTicker := time.NewTicker(30 * time.Second)
+	defer pingTicker.Stop()
+	
+	// Channel to signal when to stop
+	done := make(chan struct{})
+	defer close(done)
+	
+	// Send pings in a separate goroutine
+	go func() {
+		for {
+			select {
+			case <-pingTicker.C:
+				clientConn.Mutex.Lock()
+				err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(10*time.Second))
+				clientConn.Mutex.Unlock()
+				if err != nil {
+					return
+				}
+			case <-done:
+				return
+			}
+		}
 	}()
 	
 	for {
@@ -164,6 +225,9 @@ func handleClientMessages(conn *websocket.Conn, auction *LiveAuction) {
 			}
 			break
 		}
+		
+		// Reset read deadline on any message
+		conn.SetReadDeadline(time.Now().Add(90 * time.Second))
 		
 		var msg WebSocketMessage
 		if err := json.Unmarshal(message, &msg); err != nil {
@@ -176,7 +240,9 @@ func handleClientMessages(conn *websocket.Conn, auction *LiveAuction) {
 			// Respond to ping/heartbeat with pong
 			pongResponse := map[string]string{"type": "pong"}
 			data, _ := json.Marshal(pongResponse)
+			clientConn.Mutex.Lock()
 			conn.WriteMessage(websocket.TextMessage, data)
+			clientConn.Mutex.Unlock()
 			
 		case "bid":
 			// Convert string TeamID to int64

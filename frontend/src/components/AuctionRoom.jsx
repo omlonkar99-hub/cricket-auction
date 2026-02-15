@@ -1100,7 +1100,7 @@ export default function AuctionRoom(props) {
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                   </svg>
                                   <div class="flex-1 min-w-0">
-                                    <p class="text-xs font-semibold text-emerald-400">{item.playerName} SOLD</p>
+                                    <p class="text-sm font-bold text-emerald-400">{item.playerName} SOLD</p>
                                     <div class="flex items-center gap-1 text-[10px] text-gray-400">
                                       <Show when={item.teamLogo} fallback={
                                         <span style={`color: ${item.teamColor}`}>{item.team}</span>
@@ -1326,9 +1326,24 @@ export default function AuctionRoom(props) {
                       <div class="bg-gray-900 rounded-xl p-3 flex items-center justify-between hover:bg-gray-800 transition-colors border border-gray-800">
                         <div class="flex items-center gap-3">
                           <div class="relative">
-                            <div class="w-11 h-11 rounded-full bg-gradient-to-br from-purple-500 via-purple-600 to-purple-700 flex items-center justify-center text-xs font-bold shadow-lg flex-shrink-0">
-                              {player.name.split(' ').map(n => n[0]).join('')}
-                            </div>
+                            <Show when={player.image} fallback={
+                              <div class="w-11 h-11 rounded-full bg-gradient-to-br from-purple-500 via-purple-600 to-purple-700 flex items-center justify-center text-xs font-bold shadow-lg flex-shrink-0">
+                                {player.name.split(' ').map(n => n[0]).join('')}
+                              </div>
+                            }>
+                              <img 
+                                src={player.image} 
+                                alt={player.name} 
+                                class="w-11 h-11 rounded-full object-cover shadow-lg border-2 border-purple-500/50 flex-shrink-0"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  e.target.nextElementSibling.style.display = 'flex';
+                                }}
+                              />
+                              <div class="w-11 h-11 rounded-full bg-gradient-to-br from-purple-500 via-purple-600 to-purple-700 flex items-center justify-center text-xs font-bold shadow-lg flex-shrink-0" style="display: none;">
+                                {player.name.split(' ').map(n => n[0]).join('')}
+                              </div>
+                            </Show>
                             <div class="absolute -top-0.5 -right-0.5 w-5 h-5 bg-gray-900 rounded-full flex items-center justify-center border border-black">
                               <span class="text-[8px] font-bold text-yellow-400">#{index() + 1}</span>
                             </div>
@@ -1379,9 +1394,24 @@ export default function AuctionRoom(props) {
                         <div class="bg-gray-900 rounded-xl p-3 hover:bg-gray-800 transition-colors border border-gray-800">
                           <div class="flex items-center justify-between">
                             <div class="flex items-center gap-3">
-                              <div class="w-11 h-11 rounded-full bg-gray-800 flex items-center justify-center text-xs font-bold text-gray-500 shadow-lg border-2 border-gray-700 flex-shrink-0">
-                                {player.name.split(' ').map(n => n[0]).join('')}
-                              </div>
+                              <Show when={player.image} fallback={
+                                <div class="w-11 h-11 rounded-full bg-gray-800 flex items-center justify-center text-xs font-bold text-gray-500 shadow-lg border-2 border-gray-700 flex-shrink-0">
+                                  {player.name.split(' ').map(n => n[0]).join('')}
+                                </div>
+                              }>
+                                <img 
+                                  src={player.image} 
+                                  alt={player.name} 
+                                  class="w-11 h-11 rounded-full object-cover shadow-lg border-2 border-gray-700 flex-shrink-0"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextElementSibling.style.display = 'flex';
+                                  }}
+                                />
+                                <div class="w-11 h-11 rounded-full bg-gray-800 flex items-center justify-center text-xs font-bold text-gray-500 shadow-lg border-2 border-gray-700 flex-shrink-0" style="display: none;">
+                                  {player.name.split(' ').map(n => n[0]).join('')}
+                                </div>
+                              </Show>
                               <div>
                                 <p class="text-sm font-semibold">{player.name}</p>
                                 <p class="text-[10px] text-gray-400">{player.role}</p>

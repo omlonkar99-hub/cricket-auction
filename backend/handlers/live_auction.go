@@ -43,13 +43,19 @@ type LiveAuction struct {
 	ControlChannel chan string
 
 	// WebSocket connections
-	Clients    map[*websocket.Conn]bool
+	Clients    map[*websocket.Conn]*ClientConn
 	ClientsMux sync.RWMutex
 
 	// Results (written to DB at end of each player)
 	Results []AuctionResult
 	// Track if unsold round has started
 	unsoldRoundStarted bool
+}
+
+// ClientConn wraps a WebSocket connection with a mutex for safe concurrent writes
+type ClientConn struct {
+	Conn  *websocket.Conn
+	Mutex sync.Mutex
 }
 
 type Bid struct {
@@ -112,6 +118,7 @@ func StartLiveAuction(auctionID int64, auction Auction) {
 	if _, exists := liveAuctions[auctionID]; exists {
 		return
 	}
+	
 	// Create live auction state
 	// Set all teams to auction budget
 	teamsWithBudget := make([]Team, len(auction.Teams))
@@ -139,7 +146,7 @@ func StartLiveAuction(auctionID int64, auction Auction) {
 
 		BidChannel:     make(chan Bid, 100),
 		ControlChannel: make(chan string, 10),
-		Clients:        make(map[*websocket.Conn]bool),
+		Clients:        make(map[*websocket.Conn]*ClientConn),
 		Results:        make([]AuctionResult, 0),
 	}
 
@@ -605,16 +612,46 @@ func (la *LiveAuction) handleControl(command string) {
 // broadcast sends update to all connected clients
 func (la *LiveAuction) broadcast(update AuctionUpdate) {
 	la.ClientsMux.RLock()
-	defer la.ClientsMux.RUnlock()
+	clientCount := len(la.Clients)
+	la.ClientsMux.RUnlock()
+	
+	if clientCount == 0 {
+		return // No clients, skip broadcast
+	}
 
-	data, _ := json.Marshal(update)
+	data, err := json.Marshal(update)
+	if err != nil {
+		log.Printf("[BROADCAST ERROR] Failed to marshal update: %v", err)
+		return
+	}
 
-	for client := range la.Clients {
-		err := client.WriteMessage(websocket.TextMessage, data)
+	la.ClientsMux.RLock()
+	// Create a slice to collect failed connections
+	var failedConns []*websocket.Conn
+	
+	for conn, clientConn := range la.Clients {
+		// Lock this specific connection for writing
+		clientConn.Mutex.Lock()
+		err := clientConn.Conn.WriteMessage(websocket.TextMessage, data)
+		clientConn.Mutex.Unlock()
+		
 		if err != nil {
-			client.Close()
-			delete(la.Clients, client)
+			failedConns = append(failedConns, conn)
 		}
+	}
+	la.ClientsMux.RUnlock()
+	
+	// Clean up failed connections outside the read lock
+	if len(failedConns) > 0 {
+		la.ClientsMux.Lock()
+		for _, conn := range failedConns {
+			if client, exists := la.Clients[conn]; exists {
+				client.Conn.Close()
+				delete(la.Clients, conn)
+			}
+		}
+		la.ClientsMux.Unlock()
+		log.Printf("[BROADCAST] Cleaned up %d failed connections", len(failedConns))
 	}
 }
 
@@ -633,8 +670,10 @@ func (la *LiveAuction) sendErrorToTeam(teamID int64, message string) {
 
 	// In production, you'd track which connection belongs to which team
 	// For now, broadcast to all (frontend will filter by teamID)
-	for client := range la.Clients {
-		client.WriteMessage(websocket.TextMessage, data)
+	for _, clientConn := range la.Clients {
+		clientConn.Mutex.Lock()
+		clientConn.Conn.WriteMessage(websocket.TextMessage, data)
+		clientConn.Mutex.Unlock()
 	}
 }
 
@@ -686,6 +725,7 @@ func (la *LiveAuction) getTeamOverseasCount(teamID int64) int {
 
 // cleanup removes auction from memory
 func (la *LiveAuction) cleanup() {
+	log.Printf("[CLEANUP] Starting cleanup for auction %d (%s)", la.ID, la.Name)
 	time.Sleep(30 * time.Second) // Keep alive for 30 seconds to allow summary creation
 
 	liveAuctionsMux.Lock()
@@ -693,13 +733,19 @@ func (la *LiveAuction) cleanup() {
 
 	// Close all connections
 	la.ClientsMux.Lock()
-	for client := range la.Clients {
-		client.Close()
+	for _, clientConn := range la.Clients {
+		clientConn.Conn.Close()
 	}
+	la.Clients = nil // Clear map to help GC
 	la.ClientsMux.Unlock()
+
+	// Close channels to prevent goroutine leaks
+	close(la.BidChannel)
+	close(la.ControlChannel)
 
 	// Remove from memory
 	delete(liveAuctions, la.ID)
+	log.Printf("[CLEANUP] Completed cleanup for auction %d", la.ID)
 }
 
 // GetLiveAuction retrieves a live auction
@@ -740,25 +786,42 @@ func StopLiveAuction(auctionID int64) {
 
 // Helper functions
 func writeResultToDB(result AuctionResult) {
-	// Write to MongoDB Atlas (async, non-blocking)
+	// Write to MongoDB Atlas with retry logic
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+		maxRetries := 3
+		for attempt := 1; attempt <= maxRetries; attempt++ {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			
+			collection := config.GetCollection("auction_results")
 
-		collection := config.GetCollection("auction_results")
+			// Use upsert to avoid duplicates - update if exists, insert if not
+			filter := bson.M{
+				"auctionId": result.AuctionID,
+				"playerId":  result.PlayerID,
+			}
+			update := bson.M{"$set": result}
+			opts := options.Update().SetUpsert(true)
 
-		// Use upsert to avoid duplicates - update if exists, insert if not
-		filter := bson.M{
-			"auctionId": result.AuctionID,
-			"playerId":  result.PlayerID,
+			_, err := collection.UpdateOne(ctx, filter, update, opts)
+			cancel()
+			
+			if err == nil {
+				// Success
+				return
+			}
+			
+			// Log error and retry
+			log.Printf("[DB ERROR] Failed to save result (attempt %d/%d) for player %s: %v", 
+				attempt, maxRetries, result.PlayerName, err)
+			
+			if attempt < maxRetries {
+				time.Sleep(time.Duration(attempt) * time.Second) // Exponential backoff
+			}
 		}
-		update := bson.M{"$set": result}
-		opts := options.Update().SetUpsert(true)
-
-		_, err := collection.UpdateOne(ctx, filter, update, opts)
-		if err != nil {
-			return
-		}
+		
+		// All retries failed - log critical error
+		log.Printf("[CRITICAL] Failed to save result after %d attempts for player %s (ID: %d, Auction: %d)", 
+			maxRetries, result.PlayerName, result.PlayerID, result.AuctionID)
 	}()
 }
 

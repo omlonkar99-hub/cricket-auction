@@ -12,30 +12,35 @@ import (
 var serverStartTime = time.Now()
 
 type SystemHealth struct {
-	Status          string  `json:"status"`
-	Uptime          string  `json:"uptime"`
-	UptimeSeconds   int64   `json:"uptimeSeconds"`
-	ActiveAuctions  int     `json:"activeAuctions"`
-	TotalAuctions   int     `json:"totalAuctions"`
-	TotalTeams      int     `json:"totalTeams"`
-	TotalPlayers    int     `json:"totalPlayers"`
-	MemoryUsageMB   uint64  `json:"memoryUsageMB"`
-	GoRoutines      int     `json:"goRoutines"`
-	DatabaseStatus  string  `json:"databaseStatus"`
-	CloudinaryStatus string `json:"cloudinaryStatus"`
+	Status            string  `json:"status"`
+	Uptime            string  `json:"uptime"`
+	UptimeSeconds     int64   `json:"uptimeSeconds"`
+	ActiveAuctions    int     `json:"activeAuctions"`
+	TotalAuctions     int     `json:"totalAuctions"`
+	TotalTeams        int     `json:"totalTeams"`
+	TotalPlayers      int     `json:"totalPlayers"`
+	MemoryUsageMB     uint64  `json:"memoryUsageMB"`
+	GoRoutines        int     `json:"goRoutines"`
+	WebSocketClients  int     `json:"webSocketClients"`
+	DatabaseStatus    string  `json:"databaseStatus"`
+	CloudinaryStatus  string  `json:"cloudinaryStatus"`
 }
 
 func GetSystemHealth(w http.ResponseWriter, r *http.Request) {
 	uptime := time.Since(serverStartTime)
 	uptimeStr := formatUptime(uptime)
 
-	// Count active auctions
+	// Count active auctions and WebSocket clients
 	activeCount := 0
-	for _, auction := range auctions {
-		if auction.IsLive {
-			activeCount++
-		}
+	totalClients := 0
+	liveAuctionsMux.RLock()
+	for _, liveAuction := range liveAuctions {
+		activeCount++
+		liveAuction.ClientsMux.RLock()
+		totalClients += len(liveAuction.Clients)
+		liveAuction.ClientsMux.RUnlock()
 	}
+	liveAuctionsMux.RUnlock()
 
 	// Memory stats
 	var m runtime.MemStats
@@ -51,6 +56,7 @@ func GetSystemHealth(w http.ResponseWriter, r *http.Request) {
 		TotalPlayers:     len(players),
 		MemoryUsageMB:    m.Alloc / 1024 / 1024,
 		GoRoutines:       runtime.NumGoroutine(),
+		WebSocketClients: totalClients,
 		DatabaseStatus:   getDatabaseStatus(),
 		CloudinaryStatus: getCloudinaryStatus(),
 	}

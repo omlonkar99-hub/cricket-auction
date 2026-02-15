@@ -187,8 +187,20 @@ func main() {
 		port = "8080" // Default for local development
 	}
 
+	// Create HTTP server with proper timeouts for long-running auctions
+	srv := &http.Server{
+		Addr:              ":" + port,
+		Handler:           r,
+		ReadTimeout:       15 * time.Second,  // Time to read request
+		WriteTimeout:      0,                  // No write timeout for WebSocket streaming
+		IdleTimeout:       120 * time.Second, // Keep-alive for idle connections
+		ReadHeaderTimeout: 10 * time.Second,  // Time to read headers
+		MaxHeaderBytes:    1 << 20,           // 1 MB max header size
+	}
+
 	log.Printf("[SERVER] Backend server starting on port %s", port)
-	log.Fatal(http.ListenAndServe(":"+port, r))
+	log.Printf("[SERVER] Configured for long-running WebSocket connections")
+	log.Fatal(srv.ListenAndServe())
 }
 
 func corsMiddleware(next http.Handler) http.Handler {
