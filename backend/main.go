@@ -73,6 +73,9 @@ func main() {
 	// Enable CORS for all routes
 	r.Use(corsMiddleware)
 	
+	// Add panic recovery middleware
+	r.Use(panicRecoveryMiddleware)
+	
 	// Handle OPTIONS requests for all routes
 	r.Methods("OPTIONS").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// CORS headers are already set by middleware
@@ -228,6 +231,19 @@ func corsMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		next.ServeHTTP(w, r)
+	})
+}
+
+func panicRecoveryMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				log.Printf("[PANIC RECOVERY] Recovered from panic: %v", err)
+				log.Printf("[PANIC RECOVERY] Request: %s %s", r.Method, r.URL.Path)
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+			}
+		}()
 		next.ServeHTTP(w, r)
 	})
 }
