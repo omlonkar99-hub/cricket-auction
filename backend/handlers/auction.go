@@ -1156,6 +1156,37 @@ func getPlayersForAuction(auction Auction) []Player {
 		}
 	}
 	
+	// Apply custom player order if configured (RoleOrder + PlayerOrder)
+	if len(auction.RoleOrder) > 0 && len(auction.PlayerOrder) > 0 {
+		orderedPlayers := make([]Player, 0, len(players))
+		playerMap := make(map[int64]Player)
+		
+		// Create a map for quick player lookup
+		for _, player := range players {
+			playerMap[player.ID] = player
+		}
+		
+		// Iterate through roles in the specified order
+		for _, role := range auction.RoleOrder {
+			// Get player IDs for this role from PlayerOrder
+			if playerIDs, exists := auction.PlayerOrder[role]; exists {
+				for _, playerID := range playerIDs {
+					if player, found := playerMap[playerID]; found {
+						orderedPlayers = append(orderedPlayers, player)
+						delete(playerMap, playerID) // Remove to avoid duplicates
+					}
+				}
+			}
+		}
+		
+		// Add any remaining players not in PlayerOrder (shouldn't happen, but safety)
+		for _, player := range playerMap {
+			orderedPlayers = append(orderedPlayers, player)
+		}
+		
+		return orderedPlayers
+	}
+	
 	return players
 }
 
