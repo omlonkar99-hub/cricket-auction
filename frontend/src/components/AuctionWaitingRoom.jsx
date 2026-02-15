@@ -12,6 +12,10 @@ export default function AuctionWaitingRoom(props) {
   let presenceInterval;
 
   onMount(() => {
+    // Send presence immediately on mount
+    sendPresence();
+    fetchPresence();
+    
     interval = setInterval(() => {
       fetchPresence();
     }, 5000);
@@ -61,8 +65,8 @@ export default function AuctionWaitingRoom(props) {
 
   const teams = () => {
     const base = resolvedTeams();
-    const onlineSet = new Set(onlineTeamIds());
-    return base.map(t => ({ ...t, isOnline: onlineSet.has(t.id) }));
+    const onlineSet = new Set(onlineTeamIds().map(id => String(id)));
+    return base.map(t => ({ ...t, isOnline: onlineSet.has(String(t.id)) }));
   };
   const players = () => resolvedPlayers();
   const onlineCount = () => teams().filter(t => t.isOnline).length;
@@ -75,7 +79,7 @@ export default function AuctionWaitingRoom(props) {
     apiCall(`/api/auctions/${id}/presence`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ teamId: props.currentUser.teamId })
+      body: JSON.stringify({ teamId: String(props.currentUser.teamId) })
     }).catch(() => {});
   };
 
