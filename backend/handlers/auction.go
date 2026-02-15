@@ -103,12 +103,12 @@ func UpdateAuctionStatus(auctionID int64, status string, isLive bool) {
 			log.Printf("[MEMORY] Updated auction %d: status=%s, isLive=%v", auctionID, status, isLive)
 			
 			// Persist to database
-			if DB != nil {
+			if config.DB != nil {
 				go func(id int64, s string, live bool) {
 					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 					defer cancel()
 					
-					_, err := GetCollection("auctions").UpdateOne(
+					_, err := config.GetCollection("auctions").UpdateOne(
 						ctx,
 						bson.M{"_id": id},
 						bson.M{"$set": bson.M{"status": s, "isLive": live}},
