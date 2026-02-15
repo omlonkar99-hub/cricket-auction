@@ -50,6 +50,21 @@ export default function CreateAuction(props) {
       const payload = { ...auctionData() };
       if (!payload.type) payload.type = 'regular';
 
+      // Ensure all IDs are strings for backend
+      if (payload.selectedTeams) {
+        payload.selectedTeams = payload.selectedTeams.map(id => String(id));
+      }
+      if (payload.selectedPlayers) {
+        payload.selectedPlayers = payload.selectedPlayers.map(id => String(id));
+      }
+      if (payload.playerOrder) {
+        const convertedPlayerOrder = {};
+        for (const [role, playerIds] of Object.entries(payload.playerOrder)) {
+          convertedPlayerOrder[role] = playerIds.map(id => String(id));
+        }
+        payload.playerOrder = convertedPlayerOrder;
+      }
+
       const isEdit = props.mode === 'edit' && payload.id;
       const url = isEdit ? `/api/auctions/${payload.id}` : '/api/auctions';
       const method = isEdit ? 'PUT' : 'POST';
