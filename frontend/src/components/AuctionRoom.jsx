@@ -655,9 +655,13 @@ export default function AuctionRoom(props) {
     const isLeftSwipe = distance > 50;
     const isRightSwipe = distance < -50;
     
+    // Only handle swipes if they're intentional (not accidental scrolling)
+    if (Math.abs(distance) < 100) return; // Require more deliberate swipe
+    
     const tabs = ['balance', 'teams', 'upcoming', 'unsold'];
     const currentIndex = tabs.indexOf(activeTab());
     
+    // Only change tabs on very deliberate horizontal swipes
     if (isLeftSwipe && currentIndex < tabs.length - 1) {
       setActiveTab(tabs[currentIndex + 1]);
     }
@@ -1095,20 +1099,20 @@ export default function AuctionRoom(props) {
                                 </div>
                               </Show>
                               <Show when={item.type === 'sold'}>
-                                <div class="flex items-center gap-2 py-2 px-3 w-full">
-                                  <svg class="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <div class="flex items-center gap-2 py-3 px-3 w-full bg-emerald-500/5 rounded-lg border border-emerald-500/20">
+                                  <svg class="w-6 h-6 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                   </svg>
                                   <div class="flex-1 min-w-0">
-                                    <p class="text-sm font-bold text-emerald-400">{item.playerName} SOLD</p>
-                                    <div class="flex items-center gap-1 text-[10px] text-gray-400">
+                                    <p class="text-base font-bold text-emerald-400 mb-1">{item.playerName} SOLD</p>
+                                    <div class="flex items-center gap-1 text-xs text-gray-300">
                                       <Show when={item.teamLogo} fallback={
-                                        <span style={`color: ${item.teamColor}`}>{item.team}</span>
+                                        <span class="font-semibold" style={`color: ${item.teamColor}`}>{item.team}</span>
                                       }>
-                                        <img src={item.teamLogo} alt={item.team} class="w-3 h-3 rounded-full object-cover" />
-                                        <span style={`color: ${item.teamColor}`}>{item.team}</span>
+                                        <img src={item.teamLogo} alt={item.team} class="w-4 h-4 rounded-full object-cover" />
+                                        <span class="font-semibold" style={`color: ${item.teamColor}`}>{item.team}</span>
                                       </Show>
-                                      <span> • ₹{item.price.toFixed(2)} Cr</span>
+                                      <span class="font-bold text-emerald-400"> • ₹{item.price.toFixed(2)} Cr</span>
                                     </div>
                                   </div>
                                 </div>
@@ -1293,8 +1297,9 @@ export default function AuctionRoom(props) {
 
               {/* Upcoming Section - Shows next players in auction order */}
               <Show when={activeTab() === 'upcoming'}>
-                <div class="space-y-2">
-                  <For each={(() => {
+                {(() => {
+                  // Lazy load upcoming players when tab is opened
+                  const upcomingPlayersList = (() => {
                     const allPlayersList = liveState()?.allPlayers || [];
                     const currentPlayer = liveState()?.currentPlayer;
                     const isUnsoldRound = liveState()?.isUnsoldRound;
@@ -1321,8 +1326,18 @@ export default function AuctionRoom(props) {
                         return isUnsold && !isSold;
                       }
                     });
-                  })()}>
-                    {(player, index) => (
+                  })();
+
+                  // Preload upcoming players images when tab is opened
+                  const upcomingUrls = upcomingPlayersList.slice(0, 10).map(p => p.image).filter(Boolean);
+                  if (upcomingUrls.length > 0) {
+                    imagePreloader.preloadBatch(upcomingUrls, 'auto');
+                  }
+
+                  return (
+                    <div class="space-y-2">
+                      <For each={upcomingPlayersList}>
+                        {(player, index) => (
                       <div class="bg-gray-900 rounded-xl p-3 flex items-center justify-between hover:bg-gray-800 transition-colors border border-gray-800">
                         <div class="flex items-center gap-3">
                           <div class="relative">
@@ -1383,13 +1398,26 @@ export default function AuctionRoom(props) {
                     )}
                   </For>
                 </div>
+                  );
+                })()}
               </Show>
 
               {/* Unsold Section - CONSISTENT SIZING */}
               <Show when={activeTab() === 'unsold'}>
-                <div class="space-y-2">
-                  <Show when={unsoldPlayers().length === 0} fallback={
-                    <For each={unsoldPlayers()}>
+                {(() => {
+                  // Lazy load unsold players when tab is opened
+                  const unsoldPlayersList = unsoldPlayers();
+                  
+                  // Preload unsold players images when tab is opened
+                  const unsoldUrls = unsoldPlayersList.slice(0, 10).map(p => p.image).filter(Boolean);
+                  if (unsoldUrls.length > 0) {
+                    imagePreloader.preloadBatch(unsoldUrls, 'auto');
+                  }
+
+                  return (
+                    <div class="space-y-2">
+                      <Show when={unsoldPlayersList.length === 0} fallback={
+                        <For each={unsoldPlayersList}>
                       {(player) => (
                         <div class="bg-gray-900 rounded-xl p-3 hover:bg-gray-800 transition-colors border border-gray-800">
                           <div class="flex items-center justify-between">
@@ -1457,6 +1485,8 @@ export default function AuctionRoom(props) {
                     </div>
                   </Show>
                 </div>
+                  );
+                })()}
               </Show>
 
             </div>

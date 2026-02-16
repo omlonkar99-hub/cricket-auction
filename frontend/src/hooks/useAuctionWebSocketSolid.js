@@ -109,10 +109,17 @@ export function useAuctionWebSocketSolid(auctionId) {
               setAuctionState(update);
               if (update.allPlayers) {
                 allPlayers = update.allPlayers;
-                const urls = (update.allPlayers || []).map((p) => p.image).filter(Boolean);
-                imagePreloader.preloadBatch(urls);
+                // Smart preloading: only current + next 4 players + team logos
+                if (update.currentPlayer) {
+                  const currentIndex = update.currentPlayerIndex - 1; // Convert from 1-based to 0-based
+                  imagePreloader.preloadNextPlayers(update.allPlayers, currentIndex, 4);
+                }
+                // Always preload team logos (small files, always visible)
+                if (update.teams) {
+                  imagePreloader.preloadTeamLogos(update.teams);
+                }
               }
-              if (update.currentPlayer?.image) imagePreloader.preload(update.currentPlayer.image);
+              if (update.currentPlayer?.image) imagePreloader.preload(update.currentPlayer.image, 'high');
               break;
             case 'bid':
               setAuctionState((prev) => prev && ({ 
@@ -201,7 +208,12 @@ export function useAuctionWebSocketSolid(auctionId) {
               if (update.allPlayers) {
                 allPlayers = update.allPlayers;
               }
-              if (update.currentPlayer?.image) imagePreloader.preload(update.currentPlayer.image);
+              // Smart preloading: preload current + next 4 players when moving to next player
+              if (update.currentPlayer?.image) {
+                imagePreloader.preload(update.currentPlayer.image, 'high');
+                const currentIndex = update.currentPlayerIndex - 1; // Convert from 1-based to 0-based
+                imagePreloader.preloadNextPlayers(allPlayers, currentIndex, 4);
+              }
               break;
             case 'unsold_round_start':
               // Unsold round started - update state with first unsold player
@@ -221,7 +233,12 @@ export function useAuctionWebSocketSolid(auctionId) {
               if (update.allPlayers) {
                 allPlayers = update.allPlayers;
               }
-              if (update.currentPlayer?.image) imagePreloader.preload(update.currentPlayer.image);
+              // Preload unsold round players (only when unsold round starts)
+              if (update.currentPlayer?.image) {
+                imagePreloader.preload(update.currentPlayer.image, 'high');
+                const currentIndex = update.currentPlayerIndex - 1; // Convert from 1-based to 0-based
+                imagePreloader.preloadNextPlayers(allPlayers, currentIndex, 4);
+              }
               // Add unsold round start message to bid history
               setBidHistory((prev) => [...prev, {
                 type: 'unsold_round_start',
