@@ -1405,11 +1405,11 @@ export default function AuctionRoom(props) {
               {/* Unsold Section - CONSISTENT SIZING */}
               <Show when={activeTab() === 'unsold'}>
                 {(() => {
-                  // Lazy load unsold players when tab is opened
+                  // Lazy load unsold players when tab is opened (available during main round)
                   const unsoldPlayersList = unsoldPlayers();
                   
-                  // Preload unsold players images when tab is opened
-                  const unsoldUrls = unsoldPlayersList.slice(0, 10).map(p => p.image).filter(Boolean);
+                  // Preload unsold players images when tab is opened (not just during unsold round)
+                  const unsoldUrls = unsoldPlayersList.slice(0, 15).map(p => p.image).filter(Boolean);
                   if (unsoldUrls.length > 0) {
                     imagePreloader.preloadBatch(unsoldUrls, 'auto');
                   }
