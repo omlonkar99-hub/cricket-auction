@@ -22,6 +22,7 @@ type LiveAuction struct {
 	Name                string
 	Teams               []Team
 	Players             []Player
+	AllPlayersOriginal  []Player // Keep original list for frontend
 	Budget              float64
 	TimerDuration       int
 	MinBidIncrement     float64
@@ -132,6 +133,7 @@ func StartLiveAuction(auctionID int64, auction Auction) {
 		Name:                auction.Name,
 		Teams:               teamsWithBudget, // Use teams with auction budget
 		Players:             auction.Players,
+		AllPlayersOriginal:  auction.Players, // Keep original list for frontend
 		Budget:              float64(auction.Budget),
 		TimerDuration:       auction.TimerDuration, // Keep in seconds
 		MinBidIncrement:     0.25, // Minimum increment (allows 0.25, 0.50, 1.00 bids)
@@ -352,7 +354,7 @@ func (la *LiveAuction) finalizePlayer() {
 		PlayersLimit:  la.PlayersLimit,
 		OverseasLimit: la.OverseasLimit,
 		Teams:         la.getTeamSnapshots(),
-		AllPlayers:    la.Players, // Include updated players array so frontend can show sold players in team rosters
+		AllPlayers:    la.AllPlayersOriginal, // Send original list with all players
 	})
 	
 	la.nextPlayer()
@@ -449,7 +451,7 @@ func (la *LiveAuction) nextPlayer() {
 				PlayersLimit:       la.PlayersLimit,
 				OverseasLimit:      la.OverseasLimit,
 				Teams:              la.getTeamSnapshots(),
-				AllPlayers:         la.Players, // Include updated players for frontend
+				AllPlayers:         la.AllPlayersOriginal, // Send original list with all players
 			})
 			return
 		} else {
@@ -520,7 +522,7 @@ func (la *LiveAuction) nextPlayer() {
 		PlayersLimit:       la.PlayersLimit,
 		OverseasLimit:      la.OverseasLimit,
 		Teams:              la.getTeamSnapshots(),
-		AllPlayers:         la.Players, // Include updated players for frontend
+		AllPlayers:         la.AllPlayersOriginal, // Send original list with all players
 	})
 }
 
@@ -711,8 +713,8 @@ func (la *LiveAuction) getTeamOverseasCount(teamID int64) int {
 	count := 0
 	for _, result := range la.Results {
 		if result.TeamID == teamID && result.Status == "sold" {
-			// Find the player to check if overseas
-			for _, player := range la.Players {
+			// Find the player in the original players list to check if overseas
+			for _, player := range la.AllPlayersOriginal {
 				if player.ID == result.PlayerID && player.IsOverseas {
 					count++
 					break
