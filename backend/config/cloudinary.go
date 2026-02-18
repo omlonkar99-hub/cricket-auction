@@ -29,12 +29,9 @@ func InitCloudinary() {
 	CloudinaryClient = cld
 }
 
-// UploadImage uploads an image to Cloudinary
-// Accepts: jpg, png, webp, gif, svg
-// Returns: optimized URL
 func UploadImage(ctx context.Context, file interface{}, folder string) (string, error) {
 	if CloudinaryClient == nil {
-		return "", nil // Cloudinary not configured
+		return "", nil 
 	}
 
 	uniqueFilename := true
@@ -43,7 +40,7 @@ func UploadImage(ctx context.Context, file interface{}, folder string) (string, 
 	uploadParams := uploader.UploadParams{
 		Folder:           folder,
 		ResourceType:     "image",
-		Transformation:   "c_limit,w_1200,h_1200,q_auto:good,f_auto", // Max 1200x1200 for high quality
+		Transformation:   "c_limit,w_1200,h_1200,q_auto:good,f_auto", // 
 		UniqueFilename:   &uniqueFilename,
 		Overwrite:        &overwrite,
 	}
@@ -57,12 +54,8 @@ func UploadImage(ctx context.Context, file interface{}, folder string) (string, 
 	return result.SecureURL, nil
 }
 
-// GetOptimizedImageURL returns a Cloudinary URL with specific transformations
-// Use this to get different sizes for different contexts
 func GetOptimizedImageURL(baseURL string, width int, height int) string {
-	// This is a helper function - you can use Cloudinary's URL transformation
-	// Example: https://res.cloudinary.com/demo/image/upload/w_200,h_200,c_fill,q_auto,f_auto/sample.jpg
-	// For now, return the base URL (transformations already applied on upload)
+
 	return baseURL
 }
 

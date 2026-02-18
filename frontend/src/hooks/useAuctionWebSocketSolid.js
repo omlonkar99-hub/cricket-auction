@@ -1,5 +1,6 @@
 import { createSignal, onMount, onCleanup } from 'solid-js';
 import { imagePreloader } from '../utils/imagePreloader';
+import { soundManager } from '../utils/soundManager';
 
 export function useAuctionWebSocketSolid(auctionId) {
   const [auctionState, setAuctionState] = createSignal(null);
@@ -133,6 +134,8 @@ export function useAuctionWebSocketSolid(auctionId) {
                 overseasLimit: update.overseasLimit !== undefined ? update.overseasLimit : prev.overseasLimit,
                 teams: update.teams 
               }));
+              // Play bid sound
+              soundManager.play('bid');
               // Add bid to history
               if (update.currentBidder) {
                 setBidHistory((prev) => [...prev, {
@@ -251,6 +254,8 @@ export function useAuctionWebSocketSolid(auctionId) {
                 setAuctionState((prev) => prev && ({ ...prev, allPlayers: update.allPlayers }));
                 allPlayers = update.allPlayers;
               }
+              // Play sold sound
+              soundManager.play('sold');
               // Add sold message to history
               const soldMsg = update.message || 'Player SOLD';
               const soldMatch = soldMsg.match(/(.+) SOLD to (.+) for ₹(.+)/);
@@ -283,6 +288,8 @@ export function useAuctionWebSocketSolid(auctionId) {
                 setAuctionState((prev) => prev && ({ ...prev, allPlayers: update.allPlayers }));
                 allPlayers = update.allPlayers;
               }
+              // Play unsold sound
+              soundManager.play('unsold');
               // Add unsold message to history
               const unsoldMsg = update.message || 'Player UNSOLD';
               const unsoldMatch = unsoldMsg.match(/(.+) is UNSOLD/);

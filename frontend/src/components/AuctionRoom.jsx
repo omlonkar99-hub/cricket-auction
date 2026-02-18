@@ -1,6 +1,7 @@
 import { createSignal, onMount, onCleanup, Show, For, createEffect, createMemo } from 'solid-js';
 import SkeletonLoader from './SkeletonLoader';
 import { useAuctionWebSocketSolid } from '../hooks/useAuctionWebSocketSolid';
+import { soundManager } from '../utils/soundManager';
 
 export default function AuctionRoom(props) {
   const auctionId = () => props.auctionId;
@@ -17,6 +18,11 @@ export default function AuctionRoom(props) {
   onMount(() => {
     // Start smart keepalive when entering auction room
     enterAuctionRoom();
+    
+    // Preload sound files
+    soundManager.preload('bid', '/sounds/bid.mp3');
+    soundManager.preload('sold', '/sounds/sold.mp3');
+    soundManager.preload('unsold', '/sounds/unsold.mp3');
     
     // Load admin team selection
     if (isAdmin()) {
@@ -90,6 +96,7 @@ export default function AuctionRoom(props) {
   const [markedNotificationTimer, setMarkedNotificationTimer] = createSignal(null);
   const [bidWarning, setBidWarning] = createSignal(null);
   const [bidWarningTimer, setBidWarningTimer] = createSignal(null);
+  const [soundEnabled, setSoundEnabled] = createSignal(soundManager.isEnabled());
 
   // Image preloading
   const preloadedImages = new Set();
@@ -680,6 +687,11 @@ export default function AuctionRoom(props) {
     return 'bg-red-500';
   };
 
+  const toggleSound = () => {
+    const newState = soundManager.toggle();
+    setSoundEnabled(newState);
+  };
+
   return (
     <Show when={!loading()} fallback={<SkeletonLoader />}>
       {/* Auction Completed Overlay */}
@@ -730,8 +742,26 @@ export default function AuctionRoom(props) {
               </Show>
             </div>
             
-            {/* Right: Budget & Squad Stats */}
+            {/* Right: Sound Toggle + Budget & Squad Stats */}
             <div class="flex items-center gap-1.5">
+              {/* Sound Toggle Button */}
+              <button
+                onClick={toggleSound}
+                class="w-7 h-7 rounded-full bg-gray-900/50 backdrop-blur-sm hover:bg-gray-800 flex items-center justify-center transition-colors border border-gray-700/30"
+                title={soundEnabled() ? 'Sound On' : 'Sound Off'}
+              >
+                <Show when={soundEnabled()} fallback={
+                  <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clip-rule="evenodd" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                  </svg>
+                }>
+                  <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                  </svg>
+                </Show>
+              </button>
+              
               {/* Auction Status Indicator for all users */}
               <Show when={liveState()?.isPaused}>
                 <div class="bg-yellow-500/20 border border-yellow-500/40 px-1.5 py-0.5 rounded text-[10px] font-bold text-yellow-400 flex items-center justify-center min-w-[50px]">
@@ -752,14 +782,14 @@ export default function AuctionRoom(props) {
               <div class="bg-gray-900/50 backdrop-blur-sm px-2 py-1 rounded-full">
                 <span class={`text-[10px] font-bold ${getBudgetColor(myBudget())}`}>₹{myBudget().toFixed(1)}</span>
               </div>
-              <div class="bg-gray-900/50 backdrop-blur-sm px-2 py-1 rounded-full flex items-center gap-1 border border-gray-700/30">
-                <svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="bg-gray-900/50 backdrop-blur-sm px-1.5 py-1 rounded-full flex items-center gap-0.5 border border-gray-700/30">
+                <svg class="w-2.5 h-2.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
                 <span class={`text-[10px] font-bold ${getSquadColor(mySquadSize())}`}>{mySquadSize()}/{liveState()?.playersLimit || 25}</span>
               </div>
-              <div class="bg-gray-900/50 backdrop-blur-sm px-2 py-1 rounded-full flex items-center gap-1 border border-gray-700/30">
-                <span class="text-[11px] filter drop-shadow-sm">✈️</span>
+              <div class="bg-gray-900/50 backdrop-blur-sm px-1.5 py-1 rounded-full flex items-center gap-0.5 border border-gray-700/30">
+                <span class="text-[10px] filter drop-shadow-sm">✈️</span>
                 <span class={`text-[10px] font-bold ${myOverseasCount() >= (liveState()?.overseasLimit || 8) - 1 ? 'text-red-400' : 'text-blue-400'}`}>
                   {myOverseasCount()}/{liveState()?.overseasLimit || 8}
                 </span>

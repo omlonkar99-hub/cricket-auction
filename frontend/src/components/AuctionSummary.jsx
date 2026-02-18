@@ -316,10 +316,10 @@ export default function AuctionSummary(props) {
         <div class={`${activeTab() === 'trades' ? 'flex flex-col h-[calc(100vh-73px)]' : 'max-w-7xl mx-auto px-4 py-6'} ${activeTab() === 'trades' ? '' : 'space-y-6'}`}>
 
           {/* Tab Navigation */}
-          <div class={`flex gap-1 border-b border-gray-800/50 ${activeTab() === 'trades' ? 'px-4 flex-shrink-0' : ''}`}>
+          <div class={`flex gap-1 border-b border-gray-800/50 ${activeTab() === 'trades' ? 'px-4 flex-shrink-0' : 'px-4'}`}>
             <button
               onClick={() => setActiveTab('overview')}
-              class={`px-4 sm:px-6 py-2 rounded-t-lg text-xs sm:text-sm font-medium transition-colors ${
+              class={`px-6 py-2 rounded-t-lg text-sm font-medium transition-colors ${
                 activeTab() === 'overview'
                   ? 'bg-gray-800 text-white border-b-2 border-emerald-500'
                   : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
@@ -329,7 +329,7 @@ export default function AuctionSummary(props) {
             </button>
             <button
               onClick={() => setActiveTab('teams')}
-              class={`px-4 sm:px-6 py-2 rounded-t-lg text-xs sm:text-sm font-medium transition-colors ${
+              class={`px-6 py-2 rounded-t-lg text-sm font-medium transition-colors ${
                 activeTab() === 'teams'
                   ? 'bg-gray-800 text-white border-b-2 border-emerald-500'
                   : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
@@ -345,7 +345,7 @@ export default function AuctionSummary(props) {
                   fetchTradeWindow();
                 }
               }}
-              class={`px-4 sm:px-6 py-2 rounded-t-lg text-xs sm:text-sm font-medium transition-colors ${
+              class={`px-6 py-2 rounded-t-lg text-sm font-medium transition-colors ${
                 activeTab() === 'trades'
                   ? 'bg-gray-800 text-white border-b-2 border-emerald-500'
                   : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
@@ -406,27 +406,27 @@ export default function AuctionSummary(props) {
 
           {/* Unsold Players in Overview */}
           <Show when={unsoldPlayers().length > 0}>
-            <div class="bg-gray-900/50 border border-gray-800/50 rounded-xl p-3 sm:p-5">
-              <h2 class="text-sm sm:text-lg font-bold flex items-center gap-2 mb-3 sm:mb-4">
-                <svg class="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="bg-gray-900/50 border border-gray-800/50 rounded-xl p-5">
+              <h2 class="text-lg font-bold flex items-center gap-2 mb-4">
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
                 Unsold Players ({unsoldPlayers().length})
               </h2>
-              <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
+              <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 <For each={unsoldPlayers()}>
                   {(player) => (
-                    <div class="bg-gray-800/30 border border-gray-700/30 rounded-lg p-2 sm:p-3 flex items-center gap-2 sm:gap-3">
+                    <div class="bg-gray-800/40 border border-gray-700/50 rounded-lg p-3 flex items-center gap-3">
                       <Show when={player.image} fallback={
-                        <div class="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gray-700 flex items-center justify-center text-[9px] sm:text-xs font-bold flex-shrink-0">
+                        <div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
                           {player.name.split(' ').map(n => n[0]).join('')}
                         </div>
                       }>
-                        <img src={player.image} alt={player.name} class="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover flex-shrink-0"/>
+                        <img src={player.image} alt={player.name} class="w-10 h-10 rounded-full object-cover flex-shrink-0"/>
                       </Show>
                       <div class="flex-1 min-w-0">
-                        <div class="text-[11px] sm:text-sm font-medium truncate">{player.name}</div>
-                        <div class="text-[10px] sm:text-xs text-gray-500">{player.role} • ₹{player.basePrice}</div>
+                        <div class="text-sm font-medium truncate">{player.name}</div>
+                        <div class="text-xs text-gray-500">{player.role} • ₹{player.basePrice}Cr</div>
                       </div>
                     </div>
                   )}
@@ -438,31 +438,31 @@ export default function AuctionSummary(props) {
 
           {/* Teams Tab */}
           <Show when={activeTab() === 'teams'}>
-          <div class="bg-gray-900/50 border border-gray-800/50 rounded-xl p-3 sm:p-5">
-            <div class="flex items-center justify-between mb-3">
-              <div class="flex items-center gap-1.5">
-                <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+          <div class="bg-gray-900/50 border border-gray-800/50 rounded-xl p-5">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
                 </svg>
-                <h2 class="text-sm font-bold">Team Rankings</h2>
+                <h2 class="text-lg font-bold">Team Rankings</h2>
               </div>
-              <span class="text-[10px] text-gray-500">By spend</span>
+              <span class="text-xs text-gray-500">By spend</span>
             </div>
             
-            <div class="space-y-2">
+            <div class="space-y-3">
               <For each={teamStats()}>
                 {(team, index) => (
                   <div 
                     class="bg-gray-800/40 hover:bg-gray-800/60 border border-gray-700/50 rounded-lg transition-all"
                   >
-                    {/* Team Header - Compact */}
+                    {/* Team Header */}
                     <div 
-                      class="p-2.5 cursor-pointer"
+                      class="p-4 cursor-pointer"
                       onClick={() => setSelectedTeam(selectedTeam()?.id === team.id ? null : team)}
                     >
-                      <div class="flex items-center gap-2">
-                        {/* Rank Badge - Small */}
-                        <div class={`w-6 h-6 rounded flex items-center justify-center font-bold text-xs flex-shrink-0 ${
+                      <div class="flex items-center gap-3">
+                        {/* Rank Badge */}
+                        <div class={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0 ${
                           index() === 0 ? 'bg-yellow-500/20 text-yellow-400' :
                           index() === 1 ? 'bg-gray-400/20 text-gray-300' :
                           index() === 2 ? 'bg-orange-500/20 text-orange-400' :
@@ -471,79 +471,79 @@ export default function AuctionSummary(props) {
                           {index() + 1}
                         </div>
 
-                        {/* Team Info - Compact */}
-                        <div class="flex items-center gap-2 flex-1 min-w-0">
+                        {/* Team Info */}
+                        <div class="flex items-center gap-3 flex-1 min-w-0">
                           <Show when={team.logo} fallback={
-                            <div class="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xs font-bold flex-shrink-0">
                               {team.shortName || team.name.substring(0, 2)}
                             </div>
                           }>
-                            <img src={team.logo} alt={team.name} class="w-7 h-7 rounded-full object-cover flex-shrink-0"/>
+                            <img src={team.logo} alt={team.name} class="w-10 h-10 rounded-full object-cover flex-shrink-0"/>
                           </Show>
                           <div class="flex-1 min-w-0">
-                            <h3 class="font-semibold text-xs truncate">{team.name}</h3>
-                            <div class="flex items-center gap-2 text-[10px] text-gray-400">
-                              <span>{team.playersCount}p</span>
-                              <span class="text-blue-400">✈️{team.overseasCount}</span>
+                            <h3 class="font-semibold text-sm truncate">{team.name}</h3>
+                            <div class="flex items-center gap-3 text-xs text-gray-400">
+                              <span>{team.playersCount} players</span>
+                              <span class="text-blue-400">✈️ {team.overseasCount} overseas</span>
                             </div>
                           </div>
                         </div>
 
-                        {/* Spend Info - Compact */}
-                        <div class="text-right mr-1">
-                          <div class="text-sm font-bold text-emerald-400">₹{team.totalSpent.toFixed(1)}</div>
-                          <div class="text-[9px] text-gray-500">₹{team.remaining.toFixed(1)} left</div>
+                        {/* Spend Info */}
+                        <div class="text-right mr-2">
+                          <div class="text-base font-bold text-emerald-400">₹{team.totalSpent.toFixed(1)}Cr</div>
+                          <div class="text-xs text-gray-500">₹{team.remaining.toFixed(1)}Cr left</div>
                         </div>
 
-                        {/* Expand Icon - Small */}
-                        <svg class={`w-4 h-4 text-gray-500 transition-transform flex-shrink-0 ${selectedTeam()?.id === team.id ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {/* Expand Icon */}
+                        <svg class={`w-5 h-5 text-gray-500 transition-transform flex-shrink-0 ${selectedTeam()?.id === team.id ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                         </svg>
                       </div>
                     </div>
 
-                    {/* Expanded Squad Details - Compact */}
+                    {/* Expanded Squad Details */}
                     <Show when={selectedTeam()?.id === team.id}>
-                      <div class="px-2.5 pb-2.5 border-t border-gray-700/30">
-                        {/* Quick Stats + PDF Button - Compact */}
-                        <div class="flex items-center justify-between gap-2 py-2">
-                          <div class="flex gap-2 flex-1 text-[10px]">
-                            <span class="text-gray-500">Avg: <span class="text-blue-400 font-semibold">₹{team.avgPrice.toFixed(1)}</span></span>
-                            <span class="text-gray-500">Max: <span class="text-purple-400 font-semibold">₹{team.mostExpensive.toFixed(1)}</span></span>
+                      <div class="px-4 pb-4 border-t border-gray-700/30">
+                        {/* Quick Stats + PDF Button */}
+                        <div class="flex items-center justify-between gap-3 py-3">
+                          <div class="flex gap-4 flex-1 text-xs">
+                            <span class="text-gray-500">Avg: <span class="text-blue-400 font-semibold">₹{team.avgPrice.toFixed(1)}Cr</span></span>
+                            <span class="text-gray-500">Max: <span class="text-purple-400 font-semibold">₹{team.mostExpensive.toFixed(1)}Cr</span></span>
                           </div>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               downloadSquadPDF(team);
                             }}
-                            class="px-2 py-1 bg-blue-600 hover:bg-blue-500 rounded text-[10px] font-semibold transition-colors flex items-center gap-1 flex-shrink-0"
+                            class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 flex-shrink-0"
                           >
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                             </svg>
-                            PDF
+                            Download PDF
                           </button>
                         </div>
 
-                        {/* Squad List - Compact */}
-                        <div class="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                        {/* Squad List */}
+                        <div class="space-y-2 max-h-80 overflow-y-auto pr-2">
                           <For each={team.players}>
                             {(player) => (
-                              <div class="flex items-center justify-between bg-gray-900/50 hover:bg-gray-900/70 rounded-lg p-2 transition-colors">
-                                <div class="flex items-center gap-2 flex-1 min-w-0">
+                              <div class="flex items-center justify-between bg-gray-900/50 hover:bg-gray-900/70 rounded-lg p-3 transition-colors">
+                                <div class="flex items-center gap-3 flex-1 min-w-0">
                                   <Show when={player.image} fallback={
-                                    <div class="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+                                    <div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
                                       {player.name.split(' ').map(n => n[0]).join('')}
                                     </div>
                                   }>
-                                    <img src={player.image} alt={player.name} class="w-6 h-6 rounded-full object-cover flex-shrink-0"/>
+                                    <img src={player.image} alt={player.name} class="w-10 h-10 rounded-full object-cover flex-shrink-0"/>
                                   </Show>
                                   <div class="flex-1 min-w-0">
-                                    <div class="text-xs font-medium truncate">{player.name}</div>
-                                    <div class="text-[10px] text-gray-500">{player.role} • {player.isOverseas ? '✈️' : '🇮🇳'}</div>
+                                    <div class="text-sm font-medium truncate">{player.name}</div>
+                                    <div class="text-xs text-gray-500">{player.role} • {player.isOverseas ? '✈️ Overseas' : '🇮🇳 Domestic'}</div>
                                   </div>
                                 </div>
-                                <div class="text-xs font-bold text-emerald-400 flex-shrink-0">₹{player.soldPrice.toFixed(1)}</div>
+                                <div class="text-sm font-bold text-emerald-400 flex-shrink-0">₹{player.soldPrice.toFixed(1)}Cr</div>
                               </div>
                             )}
                           </For>
@@ -863,36 +863,35 @@ function TradeSection(props) {
   };
 
   return (
-    <div class="bg-gray-900/50 border-0 sm:border sm:border-gray-800/50 rounded-none sm:rounded-xl p-0 sm:p-5 flex-1 flex flex-col min-h-0">
-      {/* Header - Mobile Responsive */}
-      <div class="flex flex-col gap-3 mb-4 p-3 sm:p-0 flex-shrink-0">
+    <div class="bg-gray-900/50 border border-gray-800/50 rounded-xl p-4 sm:p-5 flex-1 flex flex-col min-h-0">
+      {/* Header - Consistent on all devices */}
+      <div class="flex flex-col gap-3 mb-4 flex-shrink-0">
         <div class="flex items-center justify-between">
-          <h2 class="text-base sm:text-lg font-bold flex items-center gap-2">
-            <svg class="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <h2 class="text-lg font-bold flex items-center gap-2">
+            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
             </svg>
             Player Trades
           </h2>
           
-          {/* New Trade Button - Top Right on Mobile */}
+          {/* New Trade Button */}
           <Show when={props.tradeWindow?.isActive || props.tradeWindow?.canTrade}>
             <button
               onClick={() => setShowTradeModal(true)}
-              class="px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 rounded-lg text-xs sm:text-sm font-semibold transition-all hover:scale-105 active:scale-95 whitespace-nowrap shadow-lg"
+              class="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 rounded-lg text-sm font-semibold transition-all hover:scale-105 active:scale-95 whitespace-nowrap shadow-lg"
             >
-              <span class="hidden sm:inline">New Trade</span>
-              <span class="sm:hidden">+ Trade</span>
+              + New Trade
             </button>
           </Show>
         </div>
         
-        {/* Status and Controls - Full Width on Mobile */}
+        {/* Status and Controls */}
         <div class="flex flex-wrap items-center gap-2">
           {/* Trade Window Status */}
           <Show when={props.tradeWindow?.isActive}>
             <div class="flex items-center gap-2">
-              <div class="px-2.5 py-1 bg-emerald-500/20 border border-emerald-500/40 rounded-md text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                <div class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></div>
+              <div class="px-3 py-1.5 bg-emerald-500/20 border border-emerald-500/40 rounded-lg text-xs font-bold text-emerald-400 flex items-center gap-2">
+                <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
                 ACTIVE
               </div>
               <Show when={props.tradeWindow?.window?.endsAt}>
@@ -904,16 +903,16 @@ function TradeSection(props) {
                   const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
                   
                   return (
-                    <div class="px-2.5 py-1 bg-gray-800/80 border border-gray-700 rounded-md">
-                      <div class="flex items-center gap-1.5">
-                        <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg">
+                      <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
                         <span class="text-xs font-medium text-gray-300">
                           <Show when={diffHours > 0} fallback={
-                            <span>{diffMins}m left</span>
+                            <span>{diffMins}m remaining</span>
                           }>
-                            <span>{diffHours}h {diffMins}m left</span>
+                            <span>{diffHours}h {diffMins}m remaining</span>
                           </Show>
                         </span>
                       </div>
@@ -924,7 +923,7 @@ function TradeSection(props) {
             </div>
           </Show>
           <Show when={!props.tradeWindow?.isActive && props.tradeWindow?.hasTradeWindow === false}>
-            <div class="px-2.5 py-1 bg-gray-500/20 border border-gray-500/30 rounded-md text-xs font-bold text-gray-400">
+            <div class="px-3 py-1.5 bg-gray-500/20 border border-gray-500/30 rounded-lg text-xs font-bold text-gray-400">
               NOT STARTED
             </div>
           </Show>
@@ -934,14 +933,14 @@ function TradeSection(props) {
             <Show when={!props.tradeWindow?.isActive} fallback={
               <button
                 onClick={endTradeWindow}
-                class="px-3 py-1.5 bg-red-600/90 hover:bg-red-600 rounded-md text-xs font-semibold transition-all hover:scale-105 active:scale-95 whitespace-nowrap shadow-md"
+                class="px-4 py-1.5 bg-red-600 hover:bg-red-500 rounded-lg text-xs font-semibold transition-all hover:scale-105 active:scale-95 whitespace-nowrap shadow-md"
               >
                 End Window
               </button>
             }>
               <button
                 onClick={startTradeWindow}
-                class="px-3 py-1.5 bg-emerald-600/90 hover:bg-emerald-600 rounded-md text-xs font-semibold transition-all hover:scale-105 active:scale-95 whitespace-nowrap shadow-md"
+                class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-xs font-semibold transition-all hover:scale-105 active:scale-95 whitespace-nowrap shadow-md"
               >
                 Start Window
               </button>
@@ -952,46 +951,46 @@ function TradeSection(props) {
 
       {/* Trade Window Info Banner */}
       <Show when={!props.tradeWindow}>
-        <div class="mb-4 mx-3 sm:mx-0 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-          <div class="flex items-center gap-2 text-blue-400 text-sm">
+        <div class="mb-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+          <div class="flex items-center gap-3 text-blue-400">
             <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            <span>Loading trade window status...</span>
+            <span class="text-sm">Loading trade window status...</span>
           </div>
         </div>
       </Show>
       
       <Show when={props.tradeWindow && !props.tradeWindow.isActive && !props.isAdmin}>
-        <div class="mb-4 mx-3 sm:mx-0 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-          <div class="flex items-center gap-2 text-yellow-400 text-sm">
+        <div class="mb-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+          <div class="flex items-center gap-3 text-yellow-400">
             <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            <span>Trade window is not active. Wait for admin to start it.</span>
+            <span class="text-sm">Trade window is not active. Wait for admin to start it.</span>
           </div>
         </div>
       </Show>
 
       <Show when={trades().length === 0}>
-        <div class="text-center py-12 px-3 text-gray-500 flex-1 flex flex-col items-center justify-center">
-          <div class="w-16 h-16 mx-auto mb-4 bg-gray-800/50 rounded-full flex items-center justify-center">
-            <svg class="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="text-center py-16 text-gray-500 flex-1 flex flex-col items-center justify-center">
+          <div class="w-20 h-20 mx-auto mb-4 bg-gray-800/50 rounded-full flex items-center justify-center">
+            <svg class="w-10 h-10 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
             </svg>
           </div>
-          <p class="text-sm font-medium">No trades yet</p>
-          <p class="text-xs text-gray-600 mt-1">Trades will appear here once created</p>
+          <p class="text-base font-medium">No trades yet</p>
+          <p class="text-sm text-gray-600 mt-2">Trades will appear here once created</p>
         </div>
       </Show>
 
       <Show when={trades().length > 0}>
         <div class="flex-1 flex flex-col min-h-0">
         {/* Status Filter */}
-        <div class="flex gap-2 mb-4 px-3 sm:px-0 flex-wrap flex-shrink-0">
+        <div class="flex gap-2 mb-4 flex-wrap flex-shrink-0">
           <button
             onClick={() => setStatusFilter('all')}
-            class={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            class={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               statusFilter() === 'all'
                 ? 'bg-blue-600 text-white' 
                 : 'bg-gray-800/50 text-gray-400 hover:bg-gray-800'
@@ -1001,7 +1000,7 @@ function TradeSection(props) {
           </button>
           <button
             onClick={() => setStatusFilter('pending')}
-            class={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            class={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               statusFilter() === 'pending' 
                 ? 'bg-yellow-600 text-white' 
                 : 'bg-gray-800/50 text-gray-400 hover:bg-gray-800'
@@ -1011,7 +1010,7 @@ function TradeSection(props) {
           </button>
           <button
             onClick={() => setStatusFilter('accepted')}
-            class={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            class={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               statusFilter() === 'accepted' 
                 ? 'bg-green-600 text-white' 
                 : 'bg-gray-800/50 text-gray-400 hover:bg-gray-800'
@@ -1021,7 +1020,7 @@ function TradeSection(props) {
           </button>
           <button
             onClick={() => setStatusFilter('rejected')}
-            class={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            class={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               statusFilter() === 'rejected' 
                 ? 'bg-red-600 text-white' 
                 : 'bg-gray-800/50 text-gray-400 hover:bg-gray-800'
@@ -1033,14 +1032,14 @@ function TradeSection(props) {
 
         {/* Pending Incoming Requests (for team users) */}
         <Show when={!props.isAdmin && pendingIncoming().length > 0}>
-          <div class="mb-4 px-3 sm:px-0 flex-shrink-0">
-            <h3 class="text-sm font-bold text-yellow-400 mb-2 flex items-center gap-2">
+          <div class="mb-4 flex-shrink-0">
+            <h3 class="text-sm font-bold text-yellow-400 mb-3 flex items-center gap-2">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
               </svg>
               Incoming Requests ({pendingIncoming().length})
             </h3>
-            <div class="space-y-2">
+            <div class="space-y-3">
               <For each={pendingIncoming()}>
                 {(trade) => <TradeCard trade={trade} auction={props.auction} type="incoming" onAccept={acceptTrade} onReject={rejectTrade} />}
               </For>
@@ -1050,14 +1049,14 @@ function TradeSection(props) {
 
         {/* Pending Outgoing Requests (for team users) */}
         <Show when={!props.isAdmin && pendingOutgoing().length > 0}>
-          <div class="mb-4 px-3 sm:px-0 flex-shrink-0">
-            <h3 class="text-sm font-bold text-blue-400 mb-2 flex items-center gap-2">
+          <div class="mb-4 flex-shrink-0">
+            <h3 class="text-sm font-bold text-blue-400 mb-3 flex items-center gap-2">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
               </svg>
               Outgoing Requests ({pendingOutgoing().length})
             </h3>
-            <div class="space-y-2">
+            <div class="space-y-3">
               <For each={pendingOutgoing()}>
                 {(trade) => <TradeCard trade={trade} auction={props.auction} type="outgoing" onCancel={cancelTrade} />}
               </For>
@@ -1066,8 +1065,8 @@ function TradeSection(props) {
         </Show>
 
         {/* All Trades - Scrollable */}
-        <div class="flex-1 overflow-y-auto px-3 sm:px-0">
-          <h3 class="text-sm font-bold text-gray-400 mb-2 sticky top-0 bg-gray-900/95 py-2 z-10">Trade History</h3>
+        <div class="flex-1 overflow-y-auto">
+          <h3 class="text-sm font-bold text-gray-400 mb-3 sticky top-0 bg-gray-900/95 py-2 z-10">Trade History</h3>
           <div class="space-y-3 pb-4">
             <For each={filteredTrades()}>
               {(trade) => <TradeCard trade={trade} auction={props.auction} type="history" />}
@@ -1348,39 +1347,39 @@ function TradeCard(props) {
   };
 
   return (
-    <div class="bg-gray-800/30 border border-gray-700/30 rounded-lg p-3">
-      <div class="flex items-start justify-between mb-2">
-        <div class={`px-2 py-0.5 rounded text-[10px] font-bold border ${statusColors[props.trade.status] || statusColors.pending}`}>
+    <div class="bg-gray-800/40 border border-gray-700/50 rounded-lg p-4">
+      <div class="flex items-start justify-between mb-3">
+        <div class={`px-2.5 py-1 rounded-md text-xs font-bold border ${statusColors[props.trade.status] || statusColors.pending}`}>
           {props.trade.status.toUpperCase()}
         </div>
-        <div class="text-[10px] text-gray-500">
-          {new Date(props.trade.createdAt).toLocaleDateString()} {new Date(props.trade.createdAt).toLocaleTimeString()}
+        <div class="text-xs text-gray-500">
+          {new Date(props.trade.createdAt).toLocaleDateString()} {new Date(props.trade.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </div>
       </div>
       
       <Show when={props.trade.message}>
-        <div class="mb-2 p-2 bg-gray-900/50 rounded text-[10px] text-gray-400 italic">
+        <div class="mb-3 p-3 bg-gray-900/50 rounded-lg text-xs text-gray-400 italic border border-gray-800">
           "{props.trade.message}"
         </div>
       </Show>
 
-      <div class="flex items-start gap-2">
+      <div class="flex items-start gap-3">
         {/* Team 1 */}
         <div class="flex-1 min-w-0">
-          <div class="space-y-1.5">
+          <div class="space-y-2">
             <For each={team1Players()}>
               {(player) => (
                 <div>
                   <div class="text-sm font-medium text-white truncate">→ {player?.name}</div>
-                  <div class="flex items-center gap-1 ml-3 mt-0.5">
+                  <div class="flex items-center gap-1.5 ml-4 mt-1">
                     <Show when={team1Data()?.logo} fallback={
-                      <div class="w-3.5 h-3.5 rounded-full bg-purple-500 flex items-center justify-center text-[8px] font-bold flex-shrink-0">
+                      <div class="w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
                         {team1Data()?.shortName}
                       </div>
                     }>
-                      <img src={team1Data().logo} alt={team1Data().name} class="w-3.5 h-3.5 rounded-full flex-shrink-0"/>
+                      <img src={team1Data().logo} alt={team1Data().name} class="w-4 h-4 rounded-full flex-shrink-0"/>
                     </Show>
-                    <span class="text-[10px] text-gray-400 truncate">{team1Data()?.name}</span>
+                    <span class="text-xs text-gray-400 truncate">{team1Data()?.name}</span>
                   </div>
                 </div>
               )}
@@ -1390,27 +1389,27 @@ function TradeCard(props) {
 
         {/* Swap Icon */}
         <div class="flex-shrink-0 pt-1">
-          <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
           </svg>
         </div>
 
         {/* Team 2 */}
         <div class="flex-1 min-w-0">
-          <div class="space-y-1.5">
+          <div class="space-y-2">
             <For each={team2Players()}>
               {(player) => (
                 <div>
                   <div class="text-sm font-medium text-white truncate">→ {player?.name}</div>
-                  <div class="flex items-center gap-1 ml-3 mt-0.5">
+                  <div class="flex items-center gap-1.5 ml-4 mt-1">
                     <Show when={team2Data()?.logo} fallback={
-                      <div class="w-3.5 h-3.5 rounded-full bg-pink-500 flex items-center justify-center text-[8px] font-bold flex-shrink-0">
+                      <div class="w-4 h-4 rounded-full bg-pink-500 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
                         {team2Data()?.shortName}
                       </div>
                     }>
-                      <img src={team2Data().logo} alt={team2Data().name} class="w-3.5 h-3.5 rounded-full flex-shrink-0"/>
+                      <img src={team2Data().logo} alt={team2Data().name} class="w-4 h-4 rounded-full flex-shrink-0"/>
                     </Show>
-                    <span class="text-[10px] text-gray-400 truncate">{team2Data()?.name}</span>
+                    <span class="text-xs text-gray-400 truncate">{team2Data()?.name}</span>
                   </div>
                 </div>
               )}
@@ -1421,16 +1420,16 @@ function TradeCard(props) {
 
       {/* Action Buttons */}
       <Show when={props.type === 'incoming'}>
-        <div class="flex gap-2 mt-3">
+        <div class="flex gap-2 mt-4">
           <button
             onClick={() => props.onAccept(props.trade.id)}
-            class="flex-1 px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-lg text-xs font-medium transition-colors"
+            class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-500 rounded-lg text-sm font-medium transition-colors"
           >
             Accept
           </button>
           <button
             onClick={() => props.onReject(props.trade.id)}
-            class="flex-1 px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded-lg text-xs font-medium transition-colors"
+            class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-medium transition-colors"
           >
             Reject
           </button>
@@ -1438,10 +1437,10 @@ function TradeCard(props) {
       </Show>
 
       <Show when={props.type === 'outgoing'}>
-        <div class="mt-3">
+        <div class="mt-4">
           <button
             onClick={() => props.onCancel(props.trade.id)}
-            class="w-full px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs font-medium transition-colors"
+            class="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium transition-colors"
           >
             Cancel Request
           </button>
