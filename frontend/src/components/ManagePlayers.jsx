@@ -1,6 +1,7 @@
 import { createSignal, onMount, Show, For } from 'solid-js';
 import { apiCall } from '../utils/api';
 import { smartCompress, getFileSizeInfo } from '../utils/imageCompressor';
+import { shortenRole } from '../utils/roleShortener';
 
 export default function ManagePlayers(props) {
   const [players, setPlayers] = createSignal([]);
@@ -26,6 +27,22 @@ export default function ManagePlayers(props) {
     'Bowler': 'Bowl', 
     'All-rounder': 'AR', 
     'Wicket-keeper': 'WK' 
+  };
+
+  // Helper function to normalize role names for comparison
+  const normalizeRole = (role) => {
+    if (!role) return '';
+    const lower = role.toLowerCase().trim();
+    if (lower.includes('bat')) return 'Batsman';
+    if (lower.includes('bowl')) return 'Bowler';
+    if (lower.includes('all') || lower.includes('rounder')) return 'All-rounder';
+    if (lower.includes('wicket') || lower.includes('keeper') || lower === 'wk') return 'Wicket-keeper';
+    return role;
+  };
+
+  // Get count for each role
+  const getRoleCount = (role) => {
+    return players().filter(p => normalizeRole(p.role) === role).length;
   };
 
   onMount(() => {
@@ -57,7 +74,7 @@ export default function ManagePlayers(props) {
     let result = sortedPlayers();
     
     if (roleFilter() !== 'All') {
-      result = result.filter(p => p.role === roleFilter());
+      result = result.filter(p => normalizeRole(p.role) === roleFilter());
     }
     
     if (searchQuery().trim()) {
@@ -326,20 +343,17 @@ export default function ManagePlayers(props) {
             All ({players().length})
           </button>
           <For each={roles}>
-            {(r) => {
-              const count = players().filter(p => p.role === r).length;
-              return (
-                <button
-                  onClick={() => setRoleFilter(r)}
-                  class={`px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-[10px] md:text-xs font-semibold whitespace-nowrap transition-colors ${
-                    roleFilter() === r ? 'bg-emerald-600 text-white' : 'bg-[#1a1a1a] text-gray-400 border border-gray-800'
-                  }`}
-                >
-                  <span class="md:hidden">{roleShortNames[r]} ({count})</span>
-                  <span class="hidden md:inline">{r} ({count})</span>
-                </button>
-              );
-            }}
+            {(r) => (
+              <button
+                onClick={() => setRoleFilter(r)}
+                class={`px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-[10px] md:text-xs font-semibold whitespace-nowrap transition-colors ${
+                  roleFilter() === r ? 'bg-emerald-600 text-white' : 'bg-[#1a1a1a] text-gray-400 border border-gray-800'
+                }`}
+              >
+                <span class="md:hidden">{roleShortNames[r]} ({getRoleCount(r)})</span>
+                <span class="hidden md:inline">{r} ({getRoleCount(r)})</span>
+              </button>
+            )}
           </For>
         </div>
       </div>
@@ -361,15 +375,13 @@ export default function ManagePlayers(props) {
                     }>
                       <img src={player.image} alt={player.name} class="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover flex-shrink-0" />
                     </Show>
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-1 mb-1">
-                        <h3 class="text-xs md:text-sm font-bold leading-none" style="word-break: break-word; line-height: 1.1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">{player.name}</h3>
+                    <div class="flex-1 min-w-0 pr-1">
+                      <h3 class="text-xs md:text-sm font-bold mb-1 line-clamp-2" style="word-break: break-word; line-height: 1.2;">{player.name}</h3>
+                      <div class="flex items-center gap-1 flex-wrap">
+                        <span class="text-[10px] md:text-xs text-gray-500">{shortenRole(player.role)}</span>
                         <Show when={player.isOverseas}>
-                          <span class="text-sm md:text-base flex-shrink-0">✈️</span>
+                          <span class="text-[10px] md:text-xs text-blue-400">• OS</span>
                         </Show>
-                      </div>
-                      <div class="flex items-center gap-1">
-                        <span class="text-[10px] md:text-xs text-gray-500">{player.role}</span>
                         <span class="text-[10px] md:text-xs text-gray-600">•</span>
                         <span class="text-[10px] md:text-xs font-semibold text-emerald-400">₹{player.basePrice}Cr</span>
                       </div>

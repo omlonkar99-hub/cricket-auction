@@ -1,3 +1,5 @@
+import { shortenRole } from '../utils/roleShortener';
+
 export default function UpcomingSection() {
   const upcomingPlayers = [
     { name: 'Virat Kohli', role: 'Batsman', basePrice: 15.00, order: 5 },
@@ -21,7 +23,7 @@ export default function UpcomingSection() {
                 </div>
                 <div class="flex-1 min-w-0">
                   <h3 class="text-lg font-bold truncate">{player.name}</h3>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">{player.role}</p>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">{shortenRole(player.role)}</p>
                 </div>
                 <div class="text-right">
                   <p class="text-xs text-gray-500 dark:text-gray-400">Base Price</p>

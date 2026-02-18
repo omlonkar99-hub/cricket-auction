@@ -1,5 +1,6 @@
 import { createSignal, createEffect, onMount, onCleanup, Show, For } from 'solid-js';
 import { apiCall } from '../utils/api';
+import { shortenRole } from '../utils/roleShortener';
 
 export default function AuctionWaitingRoom(props) {
   const [onlineTeams, setOnlineTeams] = createSignal([]);
@@ -246,7 +247,7 @@ export default function AuctionWaitingRoom(props) {
                             </svg>
                           </Show>
                         </div>
-                        <span class="text-xs text-gray-500">{player.role}</span>
+                        <span class="text-xs text-gray-500">{shortenRole(player.role)}</span>
                       </div>
                     </div>
                     <span class="text-xs font-semibold text-emerald-400">₹{player.basePrice}Cr</span>

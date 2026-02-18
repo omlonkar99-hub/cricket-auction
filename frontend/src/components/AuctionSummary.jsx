@@ -1,5 +1,6 @@
 import { createSignal, onMount, Show, For, createEffect } from 'solid-js';
 import { apiCall } from '../utils/api';
+import { shortenRole } from '../utils/roleShortener';
 
 // Auction Summary Component
 export default function AuctionSummary(props) {
@@ -426,7 +427,7 @@ export default function AuctionSummary(props) {
                       </Show>
                       <div class="flex-1 min-w-0">
                         <div class="text-sm font-medium truncate">{player.name}</div>
-                        <div class="text-xs text-gray-500">{player.role} • ₹{player.basePrice}Cr</div>
+                        <div class="text-xs text-gray-500">{shortenRole(player.role)} • ₹{player.basePrice}Cr</div>
                       </div>
                     </div>
                   )}
@@ -457,12 +458,12 @@ export default function AuctionSummary(props) {
                   >
                     {/* Team Header */}
                     <div 
-                      class="p-4 cursor-pointer"
+                      class="p-3 sm:p-4 cursor-pointer"
                       onClick={() => setSelectedTeam(selectedTeam()?.id === team.id ? null : team)}
                     >
-                      <div class="flex items-center gap-3">
+                      <div class="flex items-center gap-2 sm:gap-3">
                         {/* Rank Badge */}
-                        <div class={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0 ${
+                        <div class={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0 ${
                           index() === 0 ? 'bg-yellow-500/20 text-yellow-400' :
                           index() === 1 ? 'bg-gray-400/20 text-gray-300' :
                           index() === 2 ? 'bg-orange-500/20 text-orange-400' :
@@ -472,27 +473,27 @@ export default function AuctionSummary(props) {
                         </div>
 
                         {/* Team Info */}
-                        <div class="flex items-center gap-3 flex-1 min-w-0">
+                        <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                           <Show when={team.logo} fallback={
-                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xs font-bold flex-shrink-0">
                               {team.shortName || team.name.substring(0, 2)}
                             </div>
                           }>
-                            <img src={team.logo} alt={team.name} class="w-10 h-10 rounded-full object-cover flex-shrink-0"/>
+                            <img src={team.logo} alt={team.name} class="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover flex-shrink-0"/>
                           </Show>
                           <div class="flex-1 min-w-0">
-                            <h3 class="font-semibold text-sm truncate">{team.name}</h3>
-                            <div class="flex items-center gap-3 text-xs text-gray-400">
+                            <h3 class="font-semibold text-xs sm:text-sm truncate">{team.name}</h3>
+                            <div class="flex items-center gap-2 text-[10px] sm:text-xs text-gray-400">
                               <span>{team.playersCount} players</span>
-                              <span class="text-blue-400">✈️ {team.overseasCount} overseas</span>
+                              <span class="text-blue-400">✈️ {team.overseasCount}</span>
                             </div>
                           </div>
                         </div>
 
                         {/* Spend Info */}
-                        <div class="text-right mr-2">
-                          <div class="text-base font-bold text-emerald-400">₹{team.totalSpent.toFixed(1)}Cr</div>
-                          <div class="text-xs text-gray-500">₹{team.remaining.toFixed(1)}Cr left</div>
+                        <div class="text-right mr-1 sm:mr-2 flex-shrink-0">
+                          <div class="text-sm sm:text-base font-bold text-emerald-400 whitespace-nowrap">₹{team.totalSpent.toFixed(1)}Cr</div>
+                          <div class="text-[10px] sm:text-xs text-gray-500 whitespace-nowrap">₹{team.remaining.toFixed(1)}Cr left</div>
                         </div>
 
                         {/* Expand Icon */}
@@ -540,7 +541,7 @@ export default function AuctionSummary(props) {
                                   </Show>
                                   <div class="flex-1 min-w-0">
                                     <div class="text-sm font-medium truncate">{player.name}</div>
-                                    <div class="text-xs text-gray-500">{player.role} • {player.isOverseas ? '✈️ Overseas' : '🇮🇳 Domestic'}</div>
+                                    <div class="text-xs text-gray-500">{shortenRole(player.role)} • {player.isOverseas ? '✈️ Overseas' : '🇮🇳 Domestic'}</div>
                                   </div>
                                 </div>
                                 <div class="text-sm font-bold text-emerald-400 flex-shrink-0">₹{player.soldPrice.toFixed(1)}Cr</div>

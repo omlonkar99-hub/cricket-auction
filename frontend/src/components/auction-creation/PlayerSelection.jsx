@@ -1,5 +1,6 @@
 import { createSignal, onMount, For, Show } from 'solid-js';
 import { apiCall } from '../../utils/api';
+import { shortenRole } from '../../utils/roleShortener';
 
 export default function PlayerSelection(props) {
   const [allPlayers, setAllPlayers] = createSignal([]);
@@ -160,7 +161,7 @@ export default function PlayerSelection(props) {
                     </Show>
                     <div class="flex-1 min-w-0">
                       <h3 class="font-medium text-sm truncate">{player.name}</h3>
-                      <p class="text-xs text-gray-400">{player.role}</p>
+                      <p class="text-xs text-gray-400">{shortenRole(player.role)}</p>
                       <p class="text-xs text-green-400">₹{player.basePrice} Cr</p>
                     </div>
                     <Show when={isSelected()}>

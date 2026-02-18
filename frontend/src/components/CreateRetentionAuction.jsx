@@ -1,5 +1,6 @@
 import { createSignal, Show, For, onMount } from 'solid-js';
 import { apiCall } from '../utils/api';
+import { shortenRole } from '../utils/roleShortener';
 
 export default function CreateRetentionAuction(props) {
   const [currentStep, setCurrentStep] = createSignal(1);
@@ -721,7 +722,7 @@ function Step4aPlayerPool(props) {
                   </Show>
                   <div>
                     <h3 class="font-medium">{player.name}</h3>
-                    <p class="text-sm text-gray-400">{player.role} • {player.isOverseas ? 'Overseas' : 'Local'}</p>
+                    <p class="text-sm text-gray-400">{shortenRole(player.role)} • {player.isOverseas ? 'Overseas' : 'Local'}</p>
                   </div>
                 </div>
                 <Show when={selectedNewPlayers().includes(player.id)}>
@@ -851,7 +852,7 @@ function Step4bSquadAssignment(props) {
                         </Show>
                         <div>
                           <p class="text-sm font-medium">{player.name}</p>
-                          <p class="text-xs text-gray-400">{player.role}</p>
+                          <p class="text-xs text-gray-400">{shortenRole(player.role)}</p>
                         </div>
                       </div>
                       <button
@@ -889,7 +890,7 @@ function Step4bSquadAssignment(props) {
                           </Show>
                           <div>
                             <p class="text-sm font-medium">{player.name}</p>
-                            <p class="text-xs text-gray-400">{player.role} • {player.isOverseas ? 'Overseas' : 'Local'}</p>
+                            <p class="text-xs text-gray-400">{shortenRole(player.role)} • {player.isOverseas ? 'Overseas' : 'Local'}</p>
                           </div>
                         </div>
                       </button>
@@ -1088,7 +1089,7 @@ function Step5bGeneralPool(props) {
                   </Show>
                   <div>
                     <h3 class="font-medium">{player.name}</h3>
-                    <p class="text-sm text-gray-400">{player.role} • {player.isOverseas ? 'Overseas' : 'Local'}</p>
+                    <p class="text-sm text-gray-400">{shortenRole(player.role)} • {player.isOverseas ? 'Overseas' : 'Local'}</p>
                   </div>
                 </div>
                 <Show when={props.formData().generalPoolPlayers.includes(player.id)}>

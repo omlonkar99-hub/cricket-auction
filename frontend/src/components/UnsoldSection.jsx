@@ -1,3 +1,5 @@
+import { shortenRole } from '../utils/roleShortener';
+
 export default function UnsoldSection() {
   const unsoldPlayers = [
     { name: 'Player One', role: 'Batsman', basePrice: 8.00 },
@@ -24,7 +26,7 @@ export default function UnsoldSection() {
                 </div>
                 <div class="flex-1 min-w-0">
                   <h3 class="text-base font-bold truncate">{player.name}</h3>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">{player.role}</p>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">{shortenRole(player.role)}</p>
                 </div>
                 <div class="text-right">
                   <p class="text-xs text-gray-500 dark:text-gray-400">Base</p>

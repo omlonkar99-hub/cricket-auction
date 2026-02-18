@@ -197,6 +197,8 @@ export function useAuctionWebSocketSolid(auctionId) {
               setAuctionState((prev) => prev && ({
                 ...prev,
                 currentPlayer: update.currentPlayer,
+                currentPlayerIndex: update.currentPlayerIndex,
+                totalPlayers: update.totalPlayers,
                 currentBid: update.currentBid,
                 currentBidder: null,
                 timer: update.timer,
@@ -223,6 +225,8 @@ export function useAuctionWebSocketSolid(auctionId) {
               setAuctionState((prev) => prev && ({
                 ...prev,
                 currentPlayer: update.currentPlayer,
+                currentPlayerIndex: update.currentPlayerIndex,
+                totalPlayers: update.totalPlayers,
                 currentBid: update.currentBid,
                 currentBidder: null,
                 timer: update.timer,

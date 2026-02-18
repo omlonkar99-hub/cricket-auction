@@ -2,6 +2,7 @@ import { createSignal, onMount, onCleanup, Show, For, createEffect, createMemo }
 import SkeletonLoader from './SkeletonLoader';
 import { useAuctionWebSocketSolid } from '../hooks/useAuctionWebSocketSolid';
 import { soundManager } from '../utils/soundManager';
+import { shortenRole } from '../utils/roleShortener';
 
 export default function AuctionRoom(props) {
   const auctionId = () => props.auctionId;
@@ -1033,24 +1034,28 @@ export default function AuctionRoom(props) {
             <div class="px-4 mb-2">
               <div class="flex gap-1.5 bg-gray-900 rounded-xl p-1 border border-gray-800">
                 <button 
+                  type="button"
                   onClick={() => setActiveTab('balance')}
                   class={`flex-1 py-2 rounded-lg text-[11px] font-bold transition-all ${activeTab() === 'balance' ? 'bg-white text-black shadow-lg' : 'text-gray-400 hover:text-gray-300'}`}
                 >
                   Activity
                 </button>
                 <button 
+                  type="button"
                   onClick={() => setActiveTab('teams')}
                   class={`flex-1 py-2 rounded-lg text-[11px] font-bold transition-all ${activeTab() === 'teams' ? 'bg-white text-black shadow-lg' : 'text-gray-400 hover:text-gray-300'}`}
                 >
                   Teams
                 </button>
                 <button 
+                  type="button"
                   onClick={() => setActiveTab('upcoming')}
                   class={`flex-1 py-2 rounded-lg text-[11px] font-bold transition-all ${activeTab() === 'upcoming' ? 'bg-white text-black shadow-lg' : 'text-gray-400 hover:text-gray-300'}`}
                 >
                   Upcoming
                 </button>
                 <button 
+                  type="button"
                   onClick={() => setActiveTab('unsold')}
                   class={`flex-1 py-2 rounded-lg text-[11px] font-bold transition-all ${activeTab() === 'unsold' ? 'bg-white text-black shadow-lg' : 'text-gray-400 hover:text-gray-300'}`}
                 >
@@ -1310,7 +1315,7 @@ export default function AuctionRoom(props) {
                                       <span class="font-medium truncate">{player.name}</span>
                                     </div>
                                     <div class="flex items-center gap-2 flex-shrink-0">
-                                      <span class="text-gray-400 text-[10px]">{player.role}</span>
+                                      <span class="text-gray-400 text-[10px]">{shortenRole(player.role)}</span>
                                       <span class="text-emerald-400 font-semibold">₹{player.soldPrice?.toFixed(1) || player.basePrice?.toFixed(1)}Cr</span>
                                     </div>
                                   </div>
@@ -1395,7 +1400,7 @@ export default function AuctionRoom(props) {
                           </div>
                           <div>
                             <p class="text-sm font-semibold">{player.name}</p>
-                            <p class="text-[10px] text-gray-400">{player.role}</p>
+                            <p class="text-[10px] text-gray-400">{shortenRole(player.role)}</p>
                           </div>
                         </div>
                         <div class="flex items-center gap-2">
@@ -1472,7 +1477,7 @@ export default function AuctionRoom(props) {
                               </Show>
                               <div>
                                 <p class="text-sm font-semibold">{player.name}</p>
-                                <p class="text-[10px] text-gray-400">{player.role}</p>
+                                <p class="text-[10px] text-gray-400">{shortenRole(player.role)}</p>
                               </div>
                             </div>
                             <div class="flex items-center gap-2">

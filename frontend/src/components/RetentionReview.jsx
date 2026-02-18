@@ -1,5 +1,6 @@
 import { createSignal, onMount, Show, For } from 'solid-js';
 import { apiCall } from '../utils/api';
+import { shortenRole } from '../utils/roleShortener';
 
 export default function RetentionReview(props) {
   const [reviewData, setReviewData] = createSignal(null);
@@ -247,7 +248,7 @@ export default function RetentionReview(props) {
                                         <div>
                                           <p class="font-medium">{player.name}</p>
                                           <p class="text-sm text-gray-400">
-                                            {player.role} • {player.isOverseas ? 'Overseas' : 'Local'}
+                                            {shortenRole(player.role)} • {player.isOverseas ? 'Overseas' : 'Local'}
                                           </p>
                                         </div>
                                       </div>
@@ -276,7 +277,7 @@ export default function RetentionReview(props) {
                                   <Show when={player}>
                                     <div class="p-2 bg-red-500/10 rounded-lg border border-red-500/30">
                                       <p class="text-sm font-medium">{player.name}</p>
-                                      <p class="text-xs text-gray-400">{player.role}</p>
+                                      <p class="text-xs text-gray-400">{shortenRole(player.role)}</p>
                                     </div>
                                   </Show>
                                 );

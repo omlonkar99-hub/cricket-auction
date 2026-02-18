@@ -54,6 +54,42 @@ export default function ManageTeams(props) {
     setTeamCode(code);
   };
 
+  const regenerateTeamCode = async (team) => {
+    if (!confirm(`Generate a new code for ${team.name}? The old code will no longer work.`)) {
+      return;
+    }
+
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let newCode = '';
+    for (let i = 0; i < 5; i++) {
+      newCode += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    try {
+      const res = await apiCall(`/api/teams/${team.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: team.name,
+          shortName: team.shortName,
+          code: newCode,
+          color: team.color,
+          logo: team.logo
+        })
+      });
+
+      if (res.ok) {
+        await fetchTeams();
+        alert(`New code generated: ${newCode}`);
+      } else {
+        throw new Error('Failed to update code');
+      }
+    } catch (error) {
+      console.error('Error regenerating code:', error);
+      alert('Failed to generate new code. Please try again.');
+    }
+  };
+
   const openModal = (team = null) => {
     if (team) {
       setEditingTeam(team);
@@ -317,60 +353,81 @@ export default function ManageTeams(props) {
                 <div 
                   class="bg-[#1a1a1a] rounded-xl p-2.5 md:p-3 border border-gray-800 hover:border-emerald-500/50 transition-colors"
                 >
-                  <div class="flex items-center gap-2 md:gap-2.5">
-                    <Show when={team.logo} fallback={
-                      <div 
-                        class="w-11 h-11 md:w-12 md:h-12 rounded-full flex items-center justify-center text-xs md:text-sm font-bold flex-shrink-0"
-                        style={{ "background-color": team.color || '#3B82F6' }}
-                      >
-                        {team.shortName || 'T'}
-                      </div>
-                    }>
-                      <img src={team.logo} alt={team.name} class="w-11 h-11 md:w-12 md:h-12 rounded-full object-cover flex-shrink-0" />
-                    </Show>
-                    <div class="flex-1 min-w-0">
-                      <h3 class="text-xs md:text-sm font-bold leading-none mb-1" style="word-break: break-word; line-height: 1.1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">{team.name}</h3>
-                      <div class="flex items-center gap-1.5 text-[10px] md:text-xs">
-                        <span class="font-semibold text-gray-300">{team.shortName}</span>
-                        <Show when={team.code}>
-                          <span class="text-gray-600">•</span>
-                          <span class="font-mono font-medium text-gray-400 tracking-wide">{team.code}</span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigator.clipboard.writeText(team.code);
-                              // Show brief feedback
-                              const btn = e.currentTarget;
-                              const originalHTML = btn.innerHTML;
-                              btn.innerHTML = '<svg class="w-3 h-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
-                              setTimeout(() => {
-                                btn.innerHTML = originalHTML;
-                              }, 1000);
-                            }}
-                            class="p-0.5 hover:bg-gray-700 rounded transition-colors"
-                            title="Copy code"
-                          >
-                            <svg class="w-3 h-3 text-gray-500 hover:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                            </svg>
-                          </button>
-                        </Show>
-                      </div>
+                  <div class="flex gap-2">
+                    {/* Left side: Team image and info */}
+                    <div class="flex-1 flex flex-col items-center text-center min-w-0">
+                      <Show when={team.logo} fallback={
+                        <div 
+                          class="w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center text-sm md:text-base font-bold flex-shrink-0 mb-2"
+                          style={{ "background-color": team.color || '#3B82F6' }}
+                        >
+                          {team.shortName || 'T'}
+                        </div>
+                      }>
+                        <img src={team.logo} alt={team.name} class="w-14 h-14 md:w-16 md:h-16 rounded-full object-cover flex-shrink-0 mb-2" />
+                      </Show>
+                      <h3 class="text-xs md:text-sm font-bold mb-2 w-full px-1 line-clamp-2" style="word-break: break-word; line-height: 1.2;">{team.name}</h3>
+                      <Show when={team.code}>
+                        <div class="flex items-baseline gap-1.5 px-2 py-1.5 bg-gray-800/50 rounded border border-gray-700/50">
+                          <span class="font-bold text-sm text-gray-200">{team.shortName}</span>
+                          <span class="text-gray-600 text-sm">•</span>
+                          <span class="font-mono font-bold text-sm text-emerald-400 tracking-wider">{team.code}</span>
+                        </div>
+                      </Show>
                     </div>
-                    <div class="flex flex-col gap-0.5 flex-shrink-0 ml-1">
+                    
+                    {/* Right side: Action buttons */}
+                    <div class="flex flex-col gap-1 flex-shrink-0">
+                      <Show when={team.code}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(team.code);
+                            // Show brief feedback
+                            const btn = e.currentTarget;
+                            const originalHTML = btn.innerHTML;
+                            btn.innerHTML = '<svg class="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+                            setTimeout(() => {
+                              btn.innerHTML = originalHTML;
+                            }, 1000);
+                          }}
+                          class="p-1.5 hover:bg-gray-700 rounded-md transition-colors"
+                          title="Copy code"
+                        >
+                          <svg class="w-3.5 h-3.5 text-gray-400 hover:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                          </svg>
+                        </button>
+                      </Show>
+                      <Show when={team.code}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            regenerateTeamCode(team);
+                          }}
+                          class="p-1.5 hover:bg-blue-500/10 text-blue-400 rounded-md transition-colors"
+                          title="Change code"
+                        >
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                        </button>
+                      </Show>
                       <button
                         onClick={() => openModal(team)}
-                        class="p-1 md:p-1.5 hover:bg-gray-800 rounded-md transition-colors"
+                        class="p-1.5 hover:bg-gray-800 rounded-md transition-colors"
+                        title="Edit team"
                       >
-                        <svg class="w-3 h-3 md:w-3.5 md:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-3.5 h-3.5 text-gray-400 hover:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </button>
                       <button
                         onClick={() => handleDelete(team.id)}
-                        class="p-1 md:p-1.5 hover:bg-red-500/10 text-red-400 rounded-md transition-colors"
+                        class="p-1.5 hover:bg-red-500/10 text-red-400 rounded-md transition-colors"
+                        title="Delete team"
                       >
-                        <svg class="w-3 h-3 md:w-3.5 md:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>

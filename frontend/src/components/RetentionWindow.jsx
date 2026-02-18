@@ -1,16 +1,16 @@
 import { createSignal, onMount, onCleanup, Show, For } from 'solid-js';
 import { apiCall } from '../utils/api';
+import { shortenRole } from '../utils/roleShortener';
 
 export default function RetentionWindow(props) {
   const [auction, setAuction] = createSignal(null);
   const [assignedPlayers, setAssignedPlayers] = createSignal([]);
   const [choices, setChoices] = createSignal({});
-  const [showSlotModal, setShowSlotModal] = createSignal(false);
-  const [selectedPlayer, setSelectedPlayer] = createSignal(null);
   const [timeRemaining, setTimeRemaining] = createSignal('');
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal('');
   const [submitted, setSubmitted] = createSignal(false);
+  const [toast, setToast] = createSignal(null); // { message, type, playerName, slot, price }
 
   onMount(() => {
     fetchData();
@@ -93,32 +93,59 @@ export default function RetentionWindow(props) {
   };
 
   const handleRetain = (player) => {
-    setSelectedPlayer(player);
-    setShowSlotModal(true);
-  };
-
-  const handleRelease = (playerId) => {
-    setChoices(prev => ({
-      ...prev,
-      [playerId]: { action: 'release', slot: null, price: 0 }
-    }));
-  };
-
-  const selectSlot = (slot) => {
-    const player = selectedPlayer();
-    if (!player) return;
-
+    // Get the next available slot automatically
+    const retainedChoices = Object.values(choices()).filter(c => c.action === 'retain');
+    const usedSlots = retainedChoices.map(c => c.slot);
+    const availableSlots = auction()?.retentionSlots?.filter(slot => !usedSlots.includes(slot.slot)) || [];
+    
+    if (availableSlots.length === 0) {
+      setToast({ 
+        message: 'All retention slots are filled', 
+        type: 'error',
+        subMessage: 'Please release a player first'
+      });
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+    
+    // Automatically assign to the first available slot (lowest slot number)
+    const nextSlot = availableSlots.sort((a, b) => a.slot - b.slot)[0];
+    
     setChoices(prev => ({
       ...prev,
       [player.id]: {
         action: 'retain',
-        slot: slot.slot,
-        price: slot.price
+        slot: nextSlot.slot,
+        price: nextSlot.price
       }
     }));
+    
+    // Show success toast
+    setToast({ 
+      message: `${player.name} retained!`,
+      type: 'success',
+      slot: nextSlot.slot,
+      price: nextSlot.price
+    });
+    setTimeout(() => setToast(null), 3000);
+  };
 
-    setShowSlotModal(false);
-    setSelectedPlayer(null);
+  const handleRelease = (playerId) => {
+    const player = assignedPlayers().find(p => p.id === playerId);
+    
+    setChoices(prev => ({
+      ...prev,
+      [playerId]: { action: 'release', slot: null, price: 0 }
+    }));
+    
+    // Show release toast
+    if (player) {
+      setToast({ 
+        message: `${player.name} released`,
+        type: 'success'
+      });
+      setTimeout(() => setToast(null), 2500);
+    }
   };
 
   const getRetainedCount = () => {
@@ -201,6 +228,40 @@ export default function RetentionWindow(props) {
 
   return (
     <div class="min-h-screen bg-[#0f0f0f] text-white pb-20">
+      {/* Toast Notification - Top Center */}
+      <Show when={toast()}>
+        <div class="fixed top-20 left-1/2 transform -translate-x-1/2 z-[60] animate-fade-in">
+          <div class={`rounded-xl p-4 shadow-2xl border-2 min-w-[280px] max-w-[90vw] ${
+            toast().type === 'success' 
+              ? 'bg-emerald-500/95 border-emerald-400' 
+              : 'bg-red-500/95 border-red-400'
+          }`}>
+            <div class="flex items-start gap-3">
+              <Show when={toast().type === 'success'} fallback={
+                <svg class="w-6 h-6 text-white flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                </svg>
+              }>
+                <svg class="w-6 h-6 text-white flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+              </Show>
+              <div class="flex-1">
+                <p class="font-bold text-white text-base">{toast().message}</p>
+                <Show when={toast().slot}>
+                  <p class="text-sm text-white/90 mt-1">
+                    Slot {toast().slot} • ₹{toast().price} Cr
+                  </p>
+                </Show>
+                <Show when={toast().subMessage}>
+                  <p class="text-sm text-white/90 mt-1">{toast().subMessage}</p>
+                </Show>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Show>
+
       {/* Header */}
       <div class="sticky top-0 z-50 bg-[#1a1a1a] border-b border-gray-800">
         <div class="max-w-[1280px] mx-auto px-4 py-2">
@@ -300,7 +361,7 @@ export default function RetentionWindow(props) {
                       <div class="flex-1 min-w-0">
                         <h3 class="font-bold text-base truncate">{player.name}</h3>
                         <div class="flex items-center gap-2 text-xs text-gray-400">
-                          <span>{player.role}</span>
+                          <span>{shortenRole(player.role)}</span>
                           <span>•</span>
                           <span class={player.isOverseas ? 'text-blue-400' : 'text-gray-400'}>
                             {player.isOverseas ? 'OS' : 'Local'}
@@ -351,49 +412,6 @@ export default function RetentionWindow(props) {
           </button>
         </Show>
       </div>
-
-      {/* Slot Selection Modal */}
-      <Show when={showSlotModal()}>
-        <div class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-          <div class="bg-[#1a1a1a] rounded-xl max-w-md w-full p-6 border border-gray-800">
-            <h2 class="text-xl font-bold mb-4">Select Retention Slot</h2>
-            <Show when={selectedPlayer()}>
-              <div class="mb-4 p-3 bg-[#0f0f0f] rounded-lg border border-gray-800">
-                <p class="font-medium">{selectedPlayer().name}</p>
-                <p class="text-sm text-gray-400">{selectedPlayer().role}</p>
-              </div>
-            </Show>
-
-            <div class="space-y-2 mb-4">
-              <Show when={auction()?.retentionSlots}>
-                <For each={auction().retentionSlots}>
-                  {(slot) => (
-                    <button
-                      onClick={() => selectSlot(slot)}
-                      class="w-full p-4 rounded-lg border-2 border-gray-800 bg-[#0f0f0f] hover:border-emerald-500 transition-all text-left"
-                    >
-                      <div class="flex items-center justify-between">
-                        <span class="font-medium">Slot {slot.slot}</span>
-                        <span class="text-lg font-bold text-emerald-400">₹{slot.price} Cr</span>
-                      </div>
-                    </button>
-                  )}
-                </For>
-              </Show>
-            </div>
-
-            <button
-              onClick={() => {
-                setShowSlotModal(false);
-                setSelectedPlayer(null);
-              }}
-              class="w-full py-3 bg-gray-800 hover:bg-gray-700 rounded-lg font-semibold transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </Show>
     </div>
   );
 }
