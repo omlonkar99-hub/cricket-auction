@@ -17,19 +17,28 @@ export default function DashboardHome(props) {
 
   const fetchData = async () => {
     try {
-      const [teamsRes, playersRes, auctionsRes] = await Promise.all([
+      const [teamsRes, playersRes, auctionsRes, retentionRes] = await Promise.all([
         apiCall('/api/teams'),
         apiCall('/api/players'),
-        apiCall('/api/auctions')
+        apiCall('/api/auctions'),
+        apiCall('/api/retention-auctions')
       ]);
       setTeams(await teamsRes.json() || []);
       setPlayers(await playersRes.json() || []);
-      const a = await auctionsRes.json();
-      const normalized = (Array.isArray(a) ? a : []).map(x => ({
+      
+      const regularAuctions = await auctionsRes.json();
+      const retentionAuctions = retentionRes.ok ? await retentionRes.json() : [];
+      
+      // Combine both types and mark retention auctions
+      const allAuctions = [
+        ...(Array.isArray(regularAuctions) ? regularAuctions : []),
+        ...(Array.isArray(retentionAuctions) ? retentionAuctions.map(r => ({ ...r, isRetention: true })) : [])
+      ].map(x => ({
         ...x,
         id: x?.id != null ? String(x.id) : x?.id
       }));
-      setAuctions(normalized);
+      
+      setAuctions(allAuctions);
     } catch (e) {
       console.error(e);
     }
@@ -68,7 +77,7 @@ export default function DashboardHome(props) {
     .filter(a => a.status === 'completed')
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Newest first
 
-  const handleDeleteAuction = async (id, name) => {
+  const handleDeleteAuction = async (id, name, isRetention) => {
     // Check if auction is live and show appropriate confirmation
     const auction = auctions().find(a => a.id === id);
     const isLive = auction?.status === 'live' || auction?.isLive;
@@ -81,7 +90,10 @@ export default function DashboardHome(props) {
 
     try {
       const auctionId = String(id);
-      const res = await apiCall(`/api/auctions/${auctionId}`, { method: 'DELETE' });
+      const endpoint = isRetention 
+        ? `/api/retention-auctions/${auctionId}` 
+        : `/api/auctions/${auctionId}`;
+      const res = await apiCall(endpoint, { method: 'DELETE' });
       if (res.ok) {
         fetchData();
         if (isLive) {
@@ -351,7 +363,14 @@ export default function DashboardHome(props) {
                   {(auction) => (
                     <div 
                       class="px-4 py-3 flex items-center justify-between gap-2 hover:bg-gray-800/50 cursor-pointer transition-colors"
-                      onClick={() => props.onNavigate('auction', { ...auction, id: String(auction.id) })}
+                      onClick={() => {
+                        const auctionData = { ...auction, id: String(auction.id) };
+                        if (auction.isRetention) {
+                          props.onNavigate('retentionAuction', auctionData);
+                        } else {
+                          props.onNavigate('auction', auctionData);
+                        }
+                      }}
                     >
                       <div class="min-w-0 flex-1">
                         <div class="font-medium truncate">{auction.name}</div>
@@ -375,7 +394,7 @@ export default function DashboardHome(props) {
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                           </button>
                           <button
-                            onClick={(e) => { e.stopPropagation(); handleDeleteAuction(auction.id, auction.name); }}
+                            onClick={(e) => { e.stopPropagation(); handleDeleteAuction(auction.id, auction.name, auction.isRetention); }}
                             class="p-1.5 hover:bg-red-500/20 rounded text-gray-400 hover:text-red-400"
                             title="Delete"
                           >
@@ -384,7 +403,7 @@ export default function DashboardHome(props) {
                         </Show>
                         <Show when={auction.status === 'completed'}>
                           <button
-                            onClick={(e) => { e.stopPropagation(); handleDeleteAuction(auction.id, auction.name); }}
+                            onClick={(e) => { e.stopPropagation(); handleDeleteAuction(auction.id, auction.name, auction.isRetention); }}
                             class="p-1.5 hover:bg-red-500/20 rounded text-gray-400 hover:text-red-400"
                             title="Delete"
                           >

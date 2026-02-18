@@ -317,23 +317,23 @@ export default function AuctionSummary(props) {
         <div class={`${activeTab() === 'trades' ? 'flex flex-col h-[calc(100vh-73px)]' : 'max-w-7xl mx-auto px-4 py-6'} ${activeTab() === 'trades' ? '' : 'space-y-6'}`}>
 
           {/* Tab Navigation */}
-          <div class={`flex gap-1 border-b border-gray-800/50 ${activeTab() === 'trades' ? 'px-4 flex-shrink-0' : 'px-4'}`}>
+          <div class={`flex gap-1 border-b border-gray-800/50 ${activeTab() === 'trades' ? 'px-4 flex-shrink-0' : ''}`}>
             <button
               onClick={() => setActiveTab('overview')}
-              class={`px-6 py-2 rounded-t-lg text-sm font-medium transition-colors ${
+              class={`px-4 py-2 text-sm font-medium transition-colors ${
                 activeTab() === 'overview'
-                  ? 'bg-gray-800 text-white border-b-2 border-emerald-500'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                  ? 'text-white border-b-2 border-emerald-500 -mb-[2px]'
+                  : 'text-gray-400 hover:text-white'
               }`}
             >
               Overview
             </button>
             <button
               onClick={() => setActiveTab('teams')}
-              class={`px-6 py-2 rounded-t-lg text-sm font-medium transition-colors ${
+              class={`px-4 py-2 text-sm font-medium transition-colors ${
                 activeTab() === 'teams'
-                  ? 'bg-gray-800 text-white border-b-2 border-emerald-500'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                  ? 'text-white border-b-2 border-emerald-500 -mb-[2px]'
+                  : 'text-gray-400 hover:text-white'
               }`}
             >
               Teams
@@ -346,10 +346,10 @@ export default function AuctionSummary(props) {
                   fetchTradeWindow();
                 }
               }}
-              class={`px-6 py-2 rounded-t-lg text-sm font-medium transition-colors ${
+              class={`px-4 py-2 text-sm font-medium transition-colors ${
                 activeTab() === 'trades'
-                  ? 'bg-gray-800 text-white border-b-2 border-emerald-500'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                  ? 'text-white border-b-2 border-emerald-500 -mb-[2px]'
+                  : 'text-gray-400 hover:text-white'
               }`}
             >
               Trades

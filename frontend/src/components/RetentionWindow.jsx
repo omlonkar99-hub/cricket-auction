@@ -29,9 +29,10 @@ export default function RetentionWindow(props) {
         return;
       }
 
-      const [auctionRes, playersRes] = await Promise.all([
+      const [auctionRes, playersRes, retentionsRes] = await Promise.all([
         apiCall(`/api/retention-auctions/${props.auctionId}`),
-        apiCall(`/api/retention-auctions/${props.auctionId}/team/${props.teamId}/players`)
+        apiCall(`/api/retention-auctions/${props.auctionId}/team/${props.teamId}/players`),
+        apiCall(`/api/retention-auctions/${props.auctionId}/retentions`)
       ]);
 
       if (!auctionRes.ok || !playersRes.ok) {
@@ -41,6 +42,7 @@ export default function RetentionWindow(props) {
 
       const auctionData = await auctionRes.json();
       const playersData = await playersRes.json();
+      const retentionsData = retentionsRes.ok ? await retentionsRes.json() : [];
 
       setAuction(auctionData);
       setAssignedPlayers(playersData || []);
@@ -50,14 +52,43 @@ export default function RetentionWindow(props) {
         setError('No players assigned to your team for this retention auction. Please contact the admin.');
       }
 
-      // Initialize choices
+      // Check if team has already submitted choices
+      const existingSubmission = retentionsData.find(r => 
+        String(r.teamId) === String(props.teamId) || 
+        Number(r.teamId) === Number(props.teamId)
+      );
+
+      // Initialize choices - either from existing submission or default to release
       const initialChoices = {};
       if (playersData && Array.isArray(playersData)) {
         playersData.forEach(player => {
+          // Default to release
           initialChoices[player.id] = { action: 'release', slot: null, price: 0 };
+          
+          // If there's an existing submission, load those choices
+          if (existingSubmission && existingSubmission.choices) {
+            const existingChoice = existingSubmission.choices.find(c => 
+              String(c.playerId) === String(player.id) || 
+              Number(c.playerId) === Number(player.id)
+            );
+            if (existingChoice) {
+              initialChoices[player.id] = {
+                action: existingChoice.action,
+                slot: existingChoice.slot,
+                price: existingChoice.price
+              };
+            }
+          }
         });
       }
+      
       setChoices(initialChoices);
+      
+      // Set submitted status if found
+      if (existingSubmission && existingSubmission.isSubmitted) {
+        setSubmitted(true);
+      }
+      
       setLoading(false);
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -93,6 +124,33 @@ export default function RetentionWindow(props) {
   };
 
   const handleRetain = (player) => {
+    // Check total retention limit
+    const retainedCount = getRetainedCount();
+    if (retainedCount >= auction()?.maxRetentions) {
+      setToast({ 
+        message: 'Maximum retention limit reached', 
+        type: 'error',
+        subMessage: `You can only retain ${auction()?.maxRetentions} players`
+      });
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+
+    // Check overseas retention limit for overseas players
+    if (player.isOverseas) {
+      const overseasCount = getOverseasCount();
+      const maxOverseas = auction()?.maxOverseasRetention || auction()?.maxOverseas;
+      if (overseasCount >= maxOverseas) {
+        setToast({ 
+          message: 'Maximum overseas retention limit reached', 
+          type: 'error',
+          subMessage: `You can only retain ${maxOverseas} overseas players`
+        });
+        setTimeout(() => setToast(null), 3000);
+        return;
+      }
+    }
+
     // Get the next available slot automatically
     const retainedChoices = Object.values(choices()).filter(c => c.action === 'retain');
     const usedSlots = retainedChoices.map(c => c.slot);
@@ -218,12 +276,27 @@ export default function RetentionWindow(props) {
       }
 
       setSubmitted(true);
-      alert('Retention choices submitted successfully!');
+      setToast({ 
+        message: 'Retention choices submitted successfully!',
+        type: 'success',
+        subMessage: 'You can edit until the window closes'
+      });
+      setTimeout(() => setToast(null), 3000);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEditChoices = () => {
+    setSubmitted(false);
+    setToast({ 
+      message: 'Edit mode enabled',
+      type: 'success',
+      subMessage: 'Make changes and submit again'
+    });
+    setTimeout(() => setToast(null), 2500);
   };
 
   return (
@@ -331,12 +404,24 @@ export default function RetentionWindow(props) {
         </Show>
 
         <Show when={submitted()}>
-          <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4 text-center">
-            <svg class="w-12 h-12 mx-auto mb-2 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-            </svg>
-            <p class="text-lg font-bold text-emerald-400">Choices Submitted!</p>
-            <p class="text-sm text-gray-400 mt-1">Your retention choices have been recorded</p>
+          <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2 flex-1 min-w-0">
+                <svg class="w-5 h-5 text-emerald-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-bold text-emerald-400">Choices Submitted!</p>
+                  <p class="text-xs text-gray-400">You can edit until window closes</p>
+                </div>
+              </div>
+              <button
+                onClick={handleEditChoices}
+                class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-semibold transition-colors flex-shrink-0"
+              >
+                Edit
+              </button>
+            </div>
           </div>
         </Show>
 
@@ -380,7 +465,11 @@ export default function RetentionWindow(props) {
                         <Show when={isRetained()} fallback={
                           <button
                             onClick={() => handleRetain(player)}
-                            class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-semibold transition-colors"
+                            disabled={
+                              getRetainedCount() >= auction()?.maxRetentions ||
+                              (player.isOverseas && getOverseasCount() >= (auction()?.maxOverseasRetention || auction()?.maxOverseas))
+                            }
+                            class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed rounded-lg text-sm font-semibold transition-colors"
                           >
                             Retain
                           </button>
