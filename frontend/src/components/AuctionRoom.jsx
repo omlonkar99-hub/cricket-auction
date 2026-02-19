@@ -1334,8 +1334,8 @@ export default function AuctionRoom(props) {
               {/* Upcoming Section - Shows next players in auction order */}
               <Show when={activeTab() === 'upcoming'}>
                 {(() => {
-                  // Lazy load upcoming players when tab is opened
-                  const upcomingPlayersList = (() => {
+                  // Memoize upcoming players list to prevent flickering
+                  const upcomingPlayersList = createMemo(() => {
                     const allPlayersList = liveState()?.allPlayers || [];
                     const currentPlayer = liveState()?.currentPlayer;
                     const isUnsoldRound = liveState()?.isUnsoldRound;
@@ -1362,17 +1362,19 @@ export default function AuctionRoom(props) {
                         return isUnsold && !isSold;
                       }
                     });
-                  })();
+                  });
 
                   // Preload upcoming players images when tab is opened
-                  const upcomingUrls = upcomingPlayersList.slice(0, 10).map(p => p.image).filter(Boolean);
-                  if (upcomingUrls.length > 0) {
-                    imagePreloader.preloadBatch(upcomingUrls, 'auto');
-                  }
+                  createEffect(() => {
+                    const upcomingUrls = upcomingPlayersList().slice(0, 10).map(p => p.image).filter(Boolean);
+                    if (upcomingUrls.length > 0) {
+                      imagePreloader.preloadBatch(upcomingUrls, 'auto');
+                    }
+                  });
 
                   return (
                     <div class="space-y-2">
-                      <For each={upcomingPlayersList}>
+                      <For each={upcomingPlayersList()}>
                         {(player, index) => (
                       <div class="bg-gray-900 rounded-xl p-3 flex items-center justify-between hover:bg-gray-800 transition-colors border border-gray-800">
                         <div class="flex items-center gap-3">
@@ -1441,19 +1443,21 @@ export default function AuctionRoom(props) {
               {/* Unsold Section - CONSISTENT SIZING */}
               <Show when={activeTab() === 'unsold'}>
                 {(() => {
-                  // Lazy load unsold players when tab is opened (available during main round)
-                  const unsoldPlayersList = unsoldPlayers();
+                  // Memoize unsold players list to prevent flickering
+                  const unsoldPlayersList = createMemo(() => unsoldPlayers());
                   
                   // Preload unsold players images when tab is opened (not just during unsold round)
-                  const unsoldUrls = unsoldPlayersList.slice(0, 15).map(p => p.image).filter(Boolean);
-                  if (unsoldUrls.length > 0) {
-                    imagePreloader.preloadBatch(unsoldUrls, 'auto');
-                  }
+                  createEffect(() => {
+                    const unsoldUrls = unsoldPlayersList().slice(0, 15).map(p => p.image).filter(Boolean);
+                    if (unsoldUrls.length > 0) {
+                      imagePreloader.preloadBatch(unsoldUrls, 'auto');
+                    }
+                  });
 
                   return (
                     <div class="space-y-2">
-                      <Show when={unsoldPlayersList.length === 0} fallback={
-                        <For each={unsoldPlayersList}>
+                      <Show when={unsoldPlayersList().length === 0} fallback={
+                        <For each={unsoldPlayersList()}>
                       {(player) => (
                         <div class="bg-gray-900 rounded-xl p-3 hover:bg-gray-800 transition-colors border border-gray-800">
                           <div class="flex items-center justify-between">
