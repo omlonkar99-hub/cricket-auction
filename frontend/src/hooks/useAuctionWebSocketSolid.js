@@ -136,17 +136,21 @@ export function useAuctionWebSocketSolid(auctionId) {
               }));
               // Play bid sound
               soundManager.play('bid');
-              // Add bid to history
+              // Add bid to history (limit to last 100 for performance)
               if (update.currentBidder) {
-                setBidHistory((prev) => [...prev, {
-                  type: 'bid',
-                  team: update.currentBidder.name,
-                  teamShort: update.currentBidder.shortName,
-                  teamColor: update.currentBidder.color || '#8B5CF6',
-                  teamLogo: update.currentBidder.logo, // Add team logo
-                  amount: update.currentBid,
-                  timestamp: Date.now()
-                }]);
+                setBidHistory((prev) => {
+                  const newHistory = [...prev, {
+                    type: 'bid',
+                    team: update.currentBidder.name,
+                    teamShort: update.currentBidder.shortName,
+                    teamColor: update.currentBidder.color || '#8B5CF6',
+                    teamLogo: update.currentBidder.logo, // Add team logo
+                    amount: update.currentBid,
+                    timestamp: Date.now()
+                  }];
+                  // Keep only last 100 bids for performance
+                  return newHistory.length > 100 ? newHistory.slice(-100) : newHistory;
+                });
               }
               break;
             case 'timer':
@@ -244,12 +248,16 @@ export function useAuctionWebSocketSolid(auctionId) {
               if (update.currentPlayer?.image) {
                 imagePreloader.preload(update.currentPlayer.image, 'high');
               }
-              // Add unsold round start message to bid history
-              setBidHistory((prev) => [...prev, {
-                type: 'unsold_round_start',
-                message: update.message || 'Unsold round started!',
-                timestamp: Date.now()
-              }]);
+              // Add unsold round start message to bid history (limit to last 100)
+              setBidHistory((prev) => {
+                const newHistory = [...prev, {
+                  type: 'unsold_round_start',
+                  message: update.message || 'Unsold round started!',
+                  timestamp: Date.now()
+                }];
+                // Keep only last 100 for performance
+                return newHistory.length > 100 ? newHistory.slice(-100) : newHistory;
+              });
               break;
             case 'player_sold':
               if (update.teams) setAuctionState((prev) => prev && ({ ...prev, teams: update.teams }));
@@ -260,22 +268,26 @@ export function useAuctionWebSocketSolid(auctionId) {
               }
               // Play sold sound
               soundManager.play('sold');
-              // Add sold message to history
+              // Add sold message to history (limit to last 100)
               const soldMsg = update.message || 'Player SOLD';
               const soldMatch = soldMsg.match(/(.+) SOLD to (.+) for ₹(.+)/);
               if (soldMatch) {
                 const [, playerName, teamName, price] = soldMatch;
                 // Find team color from teams
                 const soldTeam = update.teams?.find(t => t.name === teamName);
-                setBidHistory((prev) => [...prev, {
-                  type: 'sold',
-                  playerName,
-                  team: teamName,
-                  teamColor: soldTeam?.color || '#10B981',
-                  teamLogo: soldTeam?.logo, // Add team logo
-                  price: parseFloat(price),
-                  timestamp: Date.now()
-                }]);
+                setBidHistory((prev) => {
+                  const newHistory = [...prev, {
+                    type: 'sold',
+                    playerName,
+                    team: teamName,
+                    teamColor: soldTeam?.color || '#10B981',
+                    teamLogo: soldTeam?.logo, // Add team logo
+                    price: parseFloat(price),
+                    timestamp: Date.now()
+                  }];
+                  // Keep only last 100 for performance
+                  return newHistory.length > 100 ? newHistory.slice(-100) : newHistory;
+                });
                 // Add to sold players list
                 const player = allPlayers.find(p => p.name === playerName);
                 if (player) {
@@ -294,16 +306,20 @@ export function useAuctionWebSocketSolid(auctionId) {
               }
               // Play unsold sound
               soundManager.play('unsold');
-              // Add unsold message to history
+              // Add unsold message to history (limit to last 100)
               const unsoldMsg = update.message || 'Player UNSOLD';
               const unsoldMatch = unsoldMsg.match(/(.+) is UNSOLD/);
               if (unsoldMatch) {
                 const [, playerName] = unsoldMatch;
-                setBidHistory((prev) => [...prev, {
-                  type: 'unsold',
-                  playerName,
-                  timestamp: Date.now()
-                }]);
+                setBidHistory((prev) => {
+                  const newHistory = [...prev, {
+                    type: 'unsold',
+                    playerName,
+                    timestamp: Date.now()
+                  }];
+                  // Keep only last 100 for performance
+                  return newHistory.length > 100 ? newHistory.slice(-100) : newHistory;
+                });
                 // Handle unsold player
                 const player = allPlayers.find(p => p.name === playerName);
                 if (player) {

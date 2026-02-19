@@ -45,12 +45,17 @@ type LiveAuction struct {
 
 	// WebSocket connections
 	Clients    map[*websocket.Conn]*ClientConn
-	ClientsMux sync.RWMutex
+	ClientsMux sync.RWMutex // Changed to RWMutex for better concurrency
 
 	// Results (written to DB at end of each player)
 	Results []AuctionResult
 	// Track if unsold round has started
 	unsoldRoundStarted bool
+	
+	// Cache for team snapshots (optimization)
+	cachedTeamSnapshots []LiveTeamSnapshot
+	teamSnapshotsDirty  bool
+	snapshotMux         sync.RWMutex
 }
 
 // ClientConn wraps a WebSocket connection with a mutex for safe concurrent writes
@@ -152,6 +157,9 @@ func StartLiveAuction(auctionID int64, auction Auction) {
 		ControlChannel: make(chan string, 10),
 		Clients:        make(map[*websocket.Conn]*ClientConn),
 		Results:        make([]AuctionResult, 0),
+		
+		// Initialize cache
+		teamSnapshotsDirty: true,
 	}
 
 	// Set first player
@@ -324,6 +332,9 @@ func (la *LiveAuction) finalizePlayer() {
 				break
 			}
 		}
+		
+		// Invalidate team snapshots cache since teams changed
+		la.invalidateTeamSnapshots()
 
 		updateType = "player_sold"
 		message = la.CurrentPlayer.Name + " SOLD to " + la.CurrentBidder.Name + " for ₹" + formatPrice(la.CurrentBid)
@@ -613,7 +624,7 @@ func (la *LiveAuction) handleControl(command string) {
 	}
 }
 
-// broadcast sends update to all connected clients
+// broadcast sends update to all connected clients (optimized with parallel writes)
 func (la *LiveAuction) broadcast(update AuctionUpdate) {
 	la.ClientsMux.RLock()
 	clientCount := len(la.Clients)
@@ -629,23 +640,47 @@ func (la *LiveAuction) broadcast(update AuctionUpdate) {
 		return
 	}
 
+	// Get snapshot of clients for parallel broadcast
 	la.ClientsMux.RLock()
-	// Create a slice to collect failed connections
-	var failedConns []*websocket.Conn
-	
-	for conn, clientConn := range la.Clients {
-		// Lock this specific connection for writing
-		clientConn.Mutex.Lock()
-		err := clientConn.Conn.WriteMessage(websocket.TextMessage, data)
-		clientConn.Mutex.Unlock()
-		
-		if err != nil {
-			failedConns = append(failedConns, conn)
-		}
+	clients := make(map[*websocket.Conn]*ClientConn, len(la.Clients))
+	for conn, client := range la.Clients {
+		clients[conn] = client
 	}
 	la.ClientsMux.RUnlock()
 	
-	// Clean up failed connections outside the read lock
+	// Broadcast to all clients in parallel
+	var wg sync.WaitGroup
+	failedConnsChan := make(chan *websocket.Conn, len(clients))
+	
+	for conn, clientConn := range clients {
+		wg.Add(1)
+		go func(c *websocket.Conn, cc *ClientConn) {
+			defer wg.Done()
+			
+			// Lock this specific connection for writing
+			cc.Mutex.Lock()
+			defer cc.Mutex.Unlock()
+			
+			// Set write deadline to prevent hanging (critical for Render free tier)
+			cc.Conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+			
+			err := cc.Conn.WriteMessage(websocket.TextMessage, data)
+			if err != nil {
+				failedConnsChan <- c
+			}
+		}(conn, clientConn)
+	}
+	
+	// Wait for all writes to complete
+	wg.Wait()
+	close(failedConnsChan)
+	
+	// Clean up failed connections
+	failedConns := make([]*websocket.Conn, 0)
+	for conn := range failedConnsChan {
+		failedConns = append(failedConns, conn)
+	}
+	
 	if len(failedConns) > 0 {
 		la.ClientsMux.Lock()
 		for _, conn := range failedConns {
@@ -683,6 +718,24 @@ func (la *LiveAuction) sendErrorToTeam(teamID int64, message string) {
 
 // getTeamSnapshots returns current team states
 func (la *LiveAuction) getTeamSnapshots() []LiveTeamSnapshot {
+	// Check if cache is valid
+	la.snapshotMux.RLock()
+	if !la.teamSnapshotsDirty && la.cachedTeamSnapshots != nil {
+		snapshots := la.cachedTeamSnapshots
+		la.snapshotMux.RUnlock()
+		return snapshots
+	}
+	la.snapshotMux.RUnlock()
+	
+	// Cache is dirty, recalculate
+	la.snapshotMux.Lock()
+	defer la.snapshotMux.Unlock()
+	
+	// Double-check after acquiring write lock
+	if !la.teamSnapshotsDirty && la.cachedTeamSnapshots != nil {
+		return la.cachedTeamSnapshots
+	}
+	
 	snapshots := make([]LiveTeamSnapshot, len(la.Teams))
 	for i, team := range la.Teams {
 		snapshots[i] = LiveTeamSnapshot{
@@ -696,7 +749,18 @@ func (la *LiveAuction) getTeamSnapshots() []LiveTeamSnapshot {
 			OverseasCount:   la.getTeamOverseasCount(team.ID),
 		}
 	}
+	
+	la.cachedTeamSnapshots = snapshots
+	la.teamSnapshotsDirty = false
+	
 	return snapshots
+}
+
+// invalidateTeamSnapshots marks the cache as dirty (call when teams change)
+func (la *LiveAuction) invalidateTeamSnapshots() {
+	la.snapshotMux.Lock()
+	la.teamSnapshotsDirty = true
+	la.snapshotMux.Unlock()
 }
 
 // getTeamPlayerCount returns the number of players bought by a team
