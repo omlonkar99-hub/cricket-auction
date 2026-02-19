@@ -3,6 +3,7 @@ import SkeletonLoader from './SkeletonLoader';
 import { useAuctionWebSocketSolid } from '../hooks/useAuctionWebSocketSolid';
 import { soundManager } from '../utils/soundManager';
 import { shortenRole } from '../utils/roleShortener';
+import { imagePreloader } from '../utils/imagePreloader';
 
 export default function AuctionRoom(props) {
   const auctionId = () => props.auctionId;

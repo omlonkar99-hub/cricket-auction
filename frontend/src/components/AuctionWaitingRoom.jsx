@@ -1,6 +1,7 @@
 import { createSignal, createEffect, onMount, onCleanup, Show, For } from 'solid-js';
 import { apiCall } from '../utils/api';
 import { shortenRole } from '../utils/roleShortener';
+import { imagePreloader } from '../utils/imagePreloader';
 
 export default function AuctionWaitingRoom(props) {
   const [onlineTeams, setOnlineTeams] = createSignal([]);
@@ -37,12 +38,16 @@ export default function AuctionWaitingRoom(props) {
 
     if (data.teams && data.teams.length > 0) {
       setResolvedTeams(data.teams);
+      // Preload team logos
+      imagePreloader.preloadTeamLogos(data.teams);
     } else if (data.selectedTeams && data.selectedTeams.length > 0) {
       apiCall('/api/teams')
         .then(res => res.json())
         .then(all => {
           const filtered = (all || []).filter(t => data.selectedTeams.includes(t.id));
           setResolvedTeams(filtered);
+          // Preload team logos
+          imagePreloader.preloadTeamLogos(filtered);
         })
         .catch(() => {});
     } else {
@@ -51,12 +56,30 @@ export default function AuctionWaitingRoom(props) {
 
     if (data.players && data.players.length > 0) {
       setResolvedPlayers(data.players);
+      // Preload first 10 player images immediately (high priority)
+      const firstPlayers = data.players.slice(0, 10).map(p => p.image).filter(Boolean);
+      if (firstPlayers.length > 0) {
+        imagePreloader.preloadBatch(firstPlayers, 'high');
+      }
+      // Preload remaining players in background (low priority)
+      setTimeout(() => {
+        imagePreloader.preloadAllPlayers(data.players);
+      }, 1000);
     } else if (data.selectedPlayers && data.selectedPlayers.length > 0) {
       apiCall('/api/players')
         .then(res => res.json())
         .then(all => {
           const filtered = (all || []).filter(p => data.selectedPlayers.includes(p.id));
           setResolvedPlayers(filtered);
+          // Preload first 10 player images immediately (high priority)
+          const firstPlayers = filtered.slice(0, 10).map(p => p.image).filter(Boolean);
+          if (firstPlayers.length > 0) {
+            imagePreloader.preloadBatch(firstPlayers, 'high');
+          }
+          // Preload remaining players in background (low priority)
+          setTimeout(() => {
+            imagePreloader.preloadAllPlayers(filtered);
+          }, 1000);
         })
         .catch(() => {});
     } else {
