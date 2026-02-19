@@ -349,14 +349,14 @@ func (la *LiveAuction) finalizePlayer() {
 	// Write to MongoDB (async, non-blocking)
 	go writeResultToDB(result)
 
-	// Broadcast player finalized (sold/unsold) and move to next immediately; DB write is already async
+	// Broadcast player finalized (sold/unsold) - don't send allPlayers here (already sent in initial state)
 	la.broadcast(AuctionUpdate{
 		Type:          updateType,
 		Message:       message,
 		PlayersLimit:  la.PlayersLimit,
 		OverseasLimit: la.OverseasLimit,
 		Teams:         la.getTeamSnapshots(),
-		AllPlayers:    la.AllPlayersOriginal, // Send original list with all players
+		// AllPlayers removed - only send in initial_state and next_player to reduce payload
 	})
 	
 	la.nextPlayer()
