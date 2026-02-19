@@ -345,8 +345,8 @@ export default function AuctionRoom(props) {
     
     const now = Date.now();
     
-    // Throttle to 60fps (~16ms)
-    if (now - lastUpdateTime < 16) {
+    // Throttle to 40fps (~25ms) for better performance
+    if (now - lastUpdateTime < 25) {
       animationFrame = requestAnimationFrame(updatePreciseTimer);
       return;
     }
