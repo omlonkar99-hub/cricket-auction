@@ -93,6 +93,9 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		Timer:              auction.Timer,
 		TimerDuration:      auction.TimerDuration,
 		IsPaused:           auction.IsPaused,
+		IsRunning:          auction.IsRunning,
+		PlayersLimit:       auction.PlayersLimit,
+		OverseasLimit:      auction.OverseasLimit,
 		Teams:              auction.getTeamSnapshots(),
 		AllPlayers:         auction.AllPlayersOriginal, // Send original list with all players
 	}
@@ -142,6 +145,9 @@ func waitForAuctionStart(conn *websocket.Conn, auctionID int64) {
 					Timer:              auction.Timer,
 					TimerDuration:      auction.TimerDuration,
 					IsPaused:           auction.IsPaused,
+					IsRunning:          auction.IsRunning,
+					PlayersLimit:       auction.PlayersLimit,
+					OverseasLimit:      auction.OverseasLimit,
 					Teams:              auction.getTeamSnapshots(),
 					AllPlayers:         auction.AllPlayersOriginal,
 				}

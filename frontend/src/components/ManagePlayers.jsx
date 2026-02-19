@@ -431,8 +431,8 @@ export default function ManagePlayers(props) {
       {/* Modal */}
       <Show when={showModal()}>
         <div 
-          class="fixed inset-0 bg-black/90 flex justify-center p-4 overflow-y-auto"
-          style="z-index: 999999; position: fixed; align-items: flex-start; padding-top: 2rem;"
+          class="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[999999]"
+          style="touch-action: none;"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               closeModal();
@@ -443,14 +443,14 @@ export default function ManagePlayers(props) {
           <div 
             class="bg-[#2a2a2a] rounded-xl border-2 border-emerald-500/30 w-full max-w-md relative shadow-2xl flex flex-col" 
             onClick={(e) => e.stopPropagation()}
-            style="max-height: calc(100vh - 4rem);"
+            style="max-height: 90vh; touch-action: auto;"
           >
-            <div class="p-2.5 border-b border-gray-700 bg-[#2a2a2a]">
+            <div class="p-2.5 border-b border-gray-700 bg-[#2a2a2a] flex-shrink-0">
               <h2 class="text-sm font-bold text-white">{editingPlayer() ? 'Edit Player' : 'Add Player'}</h2>
               <p class="text-[9px] text-gray-400 mt-0.5">Press Ctrl+V to paste image</p>
             </div>
             
-            <div class="p-2.5 space-y-2.5 overflow-y-auto flex-1">
+            <div class="p-2.5 space-y-2.5 overflow-y-auto flex-1" style="overscroll-behavior: contain; -webkit-overflow-scrolling: touch;">
               <div>
                 <label class="block text-[11px] font-medium text-gray-400 mb-1">Player Name</label>
                 <input
@@ -533,7 +533,7 @@ export default function ManagePlayers(props) {
               </div>
             </div>
 
-            <div class="p-2.5 border-t border-gray-700 flex gap-1.5 bg-[#2a2a2a]">
+            <div class="p-2.5 border-t border-gray-700 flex gap-1.5 bg-[#2a2a2a] flex-shrink-0">
               <button
                 onClick={closeModal}
                 class="flex-1 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs font-semibold transition-colors"

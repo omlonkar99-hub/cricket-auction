@@ -85,6 +85,8 @@ type AuctionUpdate struct {
 	Timer              int                `json:"timer,omitempty"`
 	TimerDuration      int                `json:"timerDuration,omitempty"`
 	IsPaused           bool               `json:"isPaused,omitempty"`
+	IsRunning          bool               `json:"isRunning,omitempty"`
+	Status             string             `json:"status,omitempty"`
 	PlayersLimit       int                `json:"playersLimit,omitempty"`
 	OverseasLimit      int                `json:"overseasLimit,omitempty"`
 	Teams              []LiveTeamSnapshot `json:"teams,omitempty"`
