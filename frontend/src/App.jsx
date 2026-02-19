@@ -94,7 +94,7 @@ function App() {
       sessionCheckInterval = setInterval(async () => {
         try {
           const res = await apiCall('/api/auth/validate', {
-            headers: { 'Authorization': token }
+            headers: { 'Authorization': `Bearer ${token}` }
           });
           
           if (!res.ok) {
