@@ -1,4 +1,5 @@
 import { createSignal, onMount, Show, For } from 'solid-js';
+import { Portal } from 'solid-js/web';
 import { apiCall } from '../utils/api';
 import { smartCompress, getFileSizeInfo } from '../utils/imageCompressor';
 import { shortenRole } from '../utils/roleShortener';
@@ -108,9 +109,6 @@ export default function ManagePlayers(props) {
     }
     setUploadError('');
     setShowModal(true);
-    
-    // Scroll to top when modal opens
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const closeModal = () => {
@@ -292,7 +290,135 @@ export default function ManagePlayers(props) {
   };
 
   return (
-    <div class="min-h-screen bg-[#0f0f0f] text-white pb-20 relative">
+    <>
+      {/* Modal - Rendered to document.body via Portal */}
+      <Portal>
+        <Show when={showModal()}>
+          <div 
+            data-modal-container
+            class="fixed inset-0 bg-black/90 flex items-center justify-center p-4 py-8"
+            style="z-index: 999999;"
+            onClick={(e) => {
+              if (e.target === e.currentTarget || e.target.hasAttribute('data-modal-container')) {
+                closeModal();
+              }
+            }}
+            onPaste={handlePaste}
+          >
+          <div 
+            class="bg-[#2a2a2a] rounded-xl border-2 border-emerald-500/30 w-full max-w-md relative shadow-2xl flex flex-col" 
+            onClick={(e) => e.stopPropagation()}
+            style="max-height: 85vh; transform: translateY(-70%);"
+          >
+            <div class="p-2.5 border-b border-gray-700 bg-[#2a2a2a] flex-shrink-0">
+              <h2 class="text-sm font-bold text-white">{editingPlayer() ? 'Edit Player' : 'Add Player'}</h2>
+              <p class="text-[9px] text-gray-400 mt-0.5">Press Ctrl+V to paste image</p>
+            </div>
+            
+            <div class="p-2.5 space-y-2.5 overflow-y-auto flex-1" style="overscroll-behavior: contain;">
+              <div>
+                <label class="block text-[11px] font-medium text-gray-400 mb-1">Player Name</label>
+                <input
+                  ref={el => el && el.focus()}
+                  type="text"
+                  value={playerName()}
+                  onInput={(e) => setPlayerName(e.target.value)}
+                  class="w-full px-2.5 py-1.5 bg-[#0f0f0f] border border-gray-800 rounded-lg text-white text-xs focus:border-emerald-500 focus:outline-none"
+                  placeholder="Virat Kohli"
+                  required
+                />
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-medium text-gray-400 mb-1">Role</label>
+                <select
+                  value={role()}
+                  onInput={(e) => setRole(e.target.value)}
+                  class="w-full px-2.5 py-1.5 bg-[#0f0f0f] border border-gray-800 rounded-lg text-white text-xs focus:border-emerald-500 focus:outline-none"
+                >
+                  <For each={roles}>
+                    {(r) => <option value={r}>{r}</option>}
+                  </For>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-medium text-gray-400 mb-1">Base Price (Cr)</label>
+                <select
+                  value={basePrice()}
+                  onInput={(e) => setBasePrice(parseFloat(e.target.value))}
+                  class="w-full px-2.5 py-1.5 bg-[#0f0f0f] border border-gray-800 rounded-lg text-white text-xs focus:border-emerald-500 focus:outline-none"
+                >
+                  <option value={0.5}>₹0.5 Cr</option>
+                  <option value={1}>₹1 Cr</option>
+                  <option value={2}>₹2 Cr</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isOverseas()}
+                    onChange={(e) => setIsOverseas(e.target.checked)}
+                    class="w-4 h-4 rounded border-gray-800 bg-[#0f0f0f] text-emerald-600 focus:ring-emerald-500 focus:ring-offset-0"
+                  />
+                  <span class="text-[11px] font-medium text-gray-400">Overseas Player ✈️</span>
+                </label>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-medium text-gray-400 mb-1">Player Image</label>
+                <div class="space-y-1.5">
+                  <Show when={imagePreview()}>
+                    <div class="flex items-center gap-2">
+                      <img src={imagePreview()} alt="Preview" class="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                      <button
+                        onClick={() => {
+                          setImageFile(null);
+                          setImagePreview('');
+                        }}
+                        class="text-[9px] text-red-400 hover:text-red-300"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </Show>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/webp,image/bmp,image/tiff"
+                    onChange={handleImageChange}
+                    class="w-full px-2.5 py-1.5 bg-[#0f0f0f] border border-gray-800 rounded-lg text-white text-[10px] file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 file:cursor-pointer"
+                  />
+                  <p class="text-[9px] text-gray-500">Max 5MB • Auto-compressed • JPEG, PNG, WebP</p>
+                  <Show when={uploadError()}>
+                    <p class="text-[9px] text-red-400">{uploadError()}</p>
+                  </Show>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-2.5 border-t border-gray-700 flex gap-1.5 bg-[#2a2a2a] flex-shrink-0">
+              <button
+                onClick={closeModal}
+                class="flex-1 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={loading() || !playerName()}
+                class="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-800 disabled:text-gray-600 rounded-lg text-xs font-semibold transition-colors"
+              >
+                {loading() ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Show>
+      </Portal>
+
+      <div class="min-h-screen bg-[#0f0f0f] text-white pb-20 relative">
       {/* Header */}
       <div class="sticky top-0 z-50 bg-[#1a1a1a] border-b border-gray-800">
         <div class="max-w-[1280px] mx-auto px-4 py-2 flex items-center justify-between">
@@ -427,130 +553,7 @@ export default function ManagePlayers(props) {
           </div>
         </Show>
       </div>
-
-      {/* Modal */}
-      <Show when={showModal()}>
-        <div 
-          class="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[999999]"
-          style="touch-action: none;"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              closeModal();
-            }
-          }}
-          onPaste={handlePaste}
-        >
-          <div 
-            class="bg-[#2a2a2a] rounded-xl border-2 border-emerald-500/30 w-full max-w-md relative shadow-2xl flex flex-col" 
-            onClick={(e) => e.stopPropagation()}
-            style="max-height: 90vh; touch-action: auto;"
-          >
-            <div class="p-2.5 border-b border-gray-700 bg-[#2a2a2a] flex-shrink-0">
-              <h2 class="text-sm font-bold text-white">{editingPlayer() ? 'Edit Player' : 'Add Player'}</h2>
-              <p class="text-[9px] text-gray-400 mt-0.5">Press Ctrl+V to paste image</p>
-            </div>
-            
-            <div class="p-2.5 space-y-2.5 overflow-y-auto flex-1" style="overscroll-behavior: contain; -webkit-overflow-scrolling: touch;">
-              <div>
-                <label class="block text-[11px] font-medium text-gray-400 mb-1">Player Name</label>
-                <input
-                  ref={el => el && el.focus()}
-                  type="text"
-                  value={playerName()}
-                  onInput={(e) => setPlayerName(e.target.value)}
-                  class="w-full px-2.5 py-1.5 bg-[#0f0f0f] border border-gray-800 rounded-lg text-white text-xs focus:border-emerald-500 focus:outline-none"
-                  placeholder="Virat Kohli"
-                  required
-                />
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-medium text-gray-400 mb-1">Role</label>
-                <select
-                  value={role()}
-                  onInput={(e) => setRole(e.target.value)}
-                  class="w-full px-2.5 py-1.5 bg-[#0f0f0f] border border-gray-800 rounded-lg text-white text-xs focus:border-emerald-500 focus:outline-none"
-                >
-                  <For each={roles}>
-                    {(r) => <option value={r}>{r}</option>}
-                  </For>
-                </select>
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-medium text-gray-400 mb-1">Base Price (Cr)</label>
-                <select
-                  value={basePrice()}
-                  onInput={(e) => setBasePrice(parseFloat(e.target.value))}
-                  class="w-full px-2.5 py-1.5 bg-[#0f0f0f] border border-gray-800 rounded-lg text-white text-xs focus:border-emerald-500 focus:outline-none"
-                >
-                  <option value={0.5}>₹0.5 Cr</option>
-                  <option value={1}>₹1 Cr</option>
-                  <option value={2}>₹2 Cr</option>
-                </select>
-              </div>
-
-              <div>
-                <label class="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isOverseas()}
-                    onChange={(e) => setIsOverseas(e.target.checked)}
-                    class="w-4 h-4 rounded border-gray-800 bg-[#0f0f0f] text-emerald-600 focus:ring-emerald-500 focus:ring-offset-0"
-                  />
-                  <span class="text-[11px] font-medium text-gray-400">Overseas Player ✈️</span>
-                </label>
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-medium text-gray-400 mb-1">Player Image</label>
-                <div class="space-y-1.5">
-                  <Show when={imagePreview()}>
-                    <div class="flex items-center gap-2">
-                      <img src={imagePreview()} alt="Preview" class="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
-                      <button
-                        onClick={() => {
-                          setImageFile(null);
-                          setImagePreview('');
-                        }}
-                        class="text-[9px] text-red-400 hover:text-red-300"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </Show>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/jpg,image/png,image/webp,image/bmp,image/tiff"
-                    onChange={handleImageChange}
-                    class="w-full px-2.5 py-1.5 bg-[#0f0f0f] border border-gray-800 rounded-lg text-white text-[10px] file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 file:cursor-pointer"
-                  />
-                  <p class="text-[9px] text-gray-500">Max 5MB • Auto-compressed • JPEG, PNG, WebP</p>
-                  <Show when={uploadError()}>
-                    <p class="text-[9px] text-red-400">{uploadError()}</p>
-                  </Show>
-                </div>
-              </div>
-            </div>
-
-            <div class="p-2.5 border-t border-gray-700 flex gap-1.5 bg-[#2a2a2a] flex-shrink-0">
-              <button
-                onClick={closeModal}
-                class="flex-1 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs font-semibold transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={loading() || !playerName()}
-                class="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-800 disabled:text-gray-600 rounded-lg text-xs font-semibold transition-colors"
-              >
-                {loading() ? 'Saving...' : 'Save'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </Show>
-    </div>
+      </div>
+    </>
   );
 }

@@ -1,4 +1,5 @@
 import { createSignal, onMount, Show, For } from 'solid-js';
+import { Portal } from 'solid-js/web';
 import { apiCall } from '../utils/api';
 import { smartCompress, getFileSizeInfo } from '../utils/imageCompressor';
 
@@ -304,6 +305,7 @@ export default function ManageTeams(props) {
   };
 
   return (
+    <>
     <div class="min-h-screen bg-[#0f0f0f] text-white pb-20 relative">
       {/* Header */}
       <div class="sticky top-0 z-50 bg-[#1a1a1a] border-b border-gray-800">
@@ -457,10 +459,11 @@ export default function ManageTeams(props) {
       </div>
 
       {/* Modal - Portal to body level */}
+      <Portal>
       <Show when={showModal()}>
         <div 
-          class="fixed inset-0 bg-black/90 flex justify-center p-4 overflow-y-auto"
-          style="z-index: 999999; position: fixed; align-items: flex-start; padding-top: 2rem;"
+          class="fixed inset-0 bg-black/90 flex items-center justify-center p-4 py-8"
+          style="z-index: 999999;"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               closeModal();
@@ -471,7 +474,7 @@ export default function ManageTeams(props) {
           <div 
             class="bg-[#2a2a2a] rounded-xl border-2 border-emerald-500/30 w-full max-w-md relative shadow-2xl flex flex-col" 
             onClick={(e) => e.stopPropagation()}
-            style="max-height: calc(100vh - 4rem);"
+            style="max-height: 85vh; transform: translateY(-70%);"
           >
             <div class="p-2.5 border-b border-gray-700 bg-[#2a2a2a]">
               <h2 class="text-sm font-bold text-white">{editingTeam() ? 'Edit Team' : 'Add Team'}</h2>
@@ -622,6 +625,8 @@ export default function ManageTeams(props) {
           </div>
         </div>
       </Show>
+      </Portal>
     </div>
+    </>
   );
 }

@@ -221,8 +221,7 @@ export default function DashboardHome(props) {
       </aside>
 
       {/* Main Content */}
-      <div class="flex-1 md:ml-64">
-        {/* Mobile Header - shown only on mobile */}
+      <div class="flex-1 md:ml-64 h-screen overflow-y-auto">{/* Mobile Header - shown only on mobile */}
         <div class="md:hidden sticky top-0 z-50 bg-[#1a1a1a] border-b border-gray-800">
           <div class="px-4 py-2 flex items-center">
             <button onClick={() => props.onNavigate('home')} class="mr-2 p-1 hover:bg-gray-800 rounded">
