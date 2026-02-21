@@ -26,6 +26,19 @@ export default function AuctionRoom(props) {
     soundManager.preload('sold', '/sounds/sold.mp3');
     soundManager.preload('unsold', '/sounds/unsold.mp3');
     
+    // Load marked players from localStorage
+    const markedStorageKey = `marked_players_${auctionId()}`;
+    const savedMarked = localStorage.getItem(markedStorageKey);
+    if (savedMarked) {
+      try {
+        const markedArray = JSON.parse(savedMarked);
+        // Convert all IDs to strings for consistency
+        setMarkedPlayers(new Set(markedArray.map(id => String(id))));
+      } catch (e) {
+        // Silent error - failed to load marked players
+      }
+    }
+    
     // Load admin team selection
     if (isAdmin()) {
       const storageKey = `admin_selected_team_${auctionId()}`;
@@ -215,12 +228,15 @@ export default function AuctionRoom(props) {
 
   // Toggle player mark/star
   const togglePlayerMark = (playerId) => {
+    // Convert to string for consistency
+    const playerIdStr = String(playerId);
+    
     setMarkedPlayers((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(playerId)) {
-        newSet.delete(playerId);
+      if (newSet.has(playerIdStr)) {
+        newSet.delete(playerIdStr);
       } else {
-        newSet.add(playerId);
+        newSet.add(playerIdStr);
       }
       // Save to localStorage
       const storageKey = `marked_players_${auctionId()}`;
@@ -232,7 +248,7 @@ export default function AuctionRoom(props) {
   // Check if current player is marked
   const isCurrentPlayerMarked = () => {
     const currentPlayer = liveState()?.currentPlayer;
-    return currentPlayer && markedPlayers().has(currentPlayer.id);
+    return currentPlayer && markedPlayers().has(String(currentPlayer.id));
   };
 
   // Check if next player is marked (look ahead in upcoming players)
@@ -245,7 +261,7 @@ export default function AuctionRoom(props) {
     if (currentIndex === -1 || currentIndex >= allPlayers.length - 1) return false;
     
     const nextPlayer = allPlayers[currentIndex + 1];
-    return nextPlayer && markedPlayers().has(nextPlayer.id);
+    return nextPlayer && markedPlayers().has(String(nextPlayer.id));
   };
 
   // Get the next marked player for early alert (only immediate next player)
@@ -255,14 +271,14 @@ export default function AuctionRoom(props) {
     if (!currentPlayer || allPlayers.length === 0) return null;
     
     // Don't show "coming up" if current player is marked (already showing current notification)
-    if (markedPlayers().has(currentPlayer.id)) return null;
+    if (markedPlayers().has(String(currentPlayer.id))) return null;
     
     const currentIndex = allPlayers.findIndex(p => p.id === currentPlayer.id);
     if (currentIndex === -1 || currentIndex >= allPlayers.length - 1) return null;
     
     // Only check the immediate next player (index + 1)
     const nextPlayer = allPlayers[currentIndex + 1];
-    if (nextPlayer && markedPlayers().has(nextPlayer.id)) {
+    if (nextPlayer && markedPlayers().has(String(nextPlayer.id))) {
       return nextPlayer;
     }
     
@@ -1415,15 +1431,15 @@ export default function AuctionRoom(props) {
                           <button
                             onClick={() => togglePlayerMark(player.id)}
                             class={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                              markedPlayers().has(player.id) 
+                              markedPlayers().has(String(player.id)) 
                                 ? 'bg-yellow-500/20 border border-yellow-500/40' 
                                 : 'bg-gray-800 border border-gray-700 hover:bg-gray-700'
                             }`}
-                            title={markedPlayers().has(player.id) ? 'Unmark player' : 'Mark player for strategy'}
+                            title={markedPlayers().has(String(player.id)) ? 'Unmark player' : 'Mark player for strategy'}
                           >
                             <svg 
-                              class={`w-4 h-4 ${markedPlayers().has(player.id) ? 'text-yellow-400' : 'text-gray-500'}`}
-                              fill={markedPlayers().has(player.id) ? 'currentColor' : 'none'}
+                              class={`w-4 h-4 ${markedPlayers().has(String(player.id)) ? 'text-yellow-400' : 'text-gray-500'}`}
+                              fill={markedPlayers().has(String(player.id)) ? 'currentColor' : 'none'}
                               stroke="currentColor" 
                               stroke-width="2" 
                               viewBox="0 0 24 24"
@@ -1494,15 +1510,15 @@ export default function AuctionRoom(props) {
                               <button
                                 onClick={() => togglePlayerMark(player.id)}
                                 class={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                                  markedPlayers().has(player.id) 
+                                  markedPlayers().has(String(player.id)) 
                                     ? 'bg-yellow-500/20 border border-yellow-500/40' 
                                     : 'bg-gray-800 border border-gray-700 hover:bg-gray-700'
                                 }`}
-                                title={markedPlayers().has(player.id) ? 'Unmark player' : 'Mark player for strategy'}
+                                title={markedPlayers().has(String(player.id)) ? 'Unmark player' : 'Mark player for strategy'}
                               >
                                 <svg 
-                                  class={`w-4 h-4 ${markedPlayers().has(player.id) ? 'text-yellow-400' : 'text-gray-500'}`}
-                                  fill={markedPlayers().has(player.id) ? 'currentColor' : 'none'}
+                                  class={`w-4 h-4 ${markedPlayers().has(String(player.id)) ? 'text-yellow-400' : 'text-gray-500'}`}
+                                  fill={markedPlayers().has(String(player.id)) ? 'currentColor' : 'none'}
                                   stroke="currentColor" 
                                   stroke-width="2" 
                                   viewBox="0 0 24 24"

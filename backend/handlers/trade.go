@@ -103,6 +103,20 @@ func CreateTradeRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid auction ID", http.StatusBadRequest)
 		return
 	}
+
+	// Check if trade window is active for this auction
+	hasActiveWindow := false
+	for _, window := range tradeWindows {
+		if window.AuctionID == auctionID && window.IsActive {
+			hasActiveWindow = true
+			break
+		}
+	}
+
+	if !hasActiveWindow {
+		http.Error(w, "Trade window is not active for this auction", http.StatusBadRequest)
+		return
+	}
 	
 	// Keep team and player IDs as strings for comparison
 	team1ID := req.Team1ID
@@ -130,6 +144,56 @@ func CreateTradeRequest(w http.ResponseWriter, r *http.Request) {
 
 	if auction == nil {
 		http.Error(w, "Auction not found", http.StatusNotFound)
+		return
+	}
+
+	// Load teams for the auction
+	allTeams := GetTeamsStore()
+	auction.Teams = make([]Team, 0)
+	for _, teamID := range auction.SelectedTeams {
+		for _, team := range allTeams {
+			if team.ID == teamID {
+				auction.Teams = append(auction.Teams, team)
+				break
+			}
+		}
+	}
+
+	// Load players with their team assignments from auction results
+	if config.DB != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		
+		cursor, err := config.GetCollection("auction_results").Find(ctx, bson.M{"auctionId": auctionID})
+		if err == nil {
+			var results []AuctionResult
+			if err := cursor.All(ctx, &results); err == nil {
+				// Get base players
+				allPlayers := GetPlayersStore()
+				playerMap := make(map[int64]Player)
+				for _, p := range allPlayers {
+					playerMap[p.ID] = p
+				}
+				
+				// Build players list with auction results
+				auction.Players = make([]Player, 0)
+				for _, result := range results {
+					if basePlayer, exists := playerMap[result.PlayerID]; exists {
+						player := basePlayer
+						player.Status = result.Status
+						if result.Status == "sold" {
+							player.TeamID = result.TeamID
+							player.SoldPrice = result.Price
+						}
+						auction.Players = append(auction.Players, player)
+					}
+				}
+			}
+		}
+	}
+
+	if len(auction.Players) == 0 {
+		http.Error(w, "No players found in auction results", http.StatusBadRequest)
 		return
 	}
 
@@ -334,22 +398,6 @@ func AcceptTradeRequest(w http.ResponseWriter, r *http.Request) {
 	if auction == nil {
 		http.Error(w, "Auction not found", http.StatusNotFound)
 		return
-	}
-
-	// Execute trade - swap team IDs
-	for i := range auction.Players {
-		for _, playerIDStr := range trade.Team1Players {
-			playerID, _ := strconv.ParseInt(playerIDStr, 10, 64)
-			if auction.Players[i].ID == playerID {
-				auction.Players[i].TeamID = trade.Team2ID
-			}
-		}
-		for _, playerIDStr := range trade.Team2Players {
-			playerID, _ := strconv.ParseInt(playerIDStr, 10, 64)
-			if auction.Players[i].ID == playerID {
-				auction.Players[i].TeamID = trade.Team1ID
-			}
-		}
 	}
 
 	// Update trade status
