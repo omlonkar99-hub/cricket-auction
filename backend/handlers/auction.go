@@ -639,17 +639,13 @@ func GetAuctionPresenceHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func StartAuction(w http.ResponseWriter, r *http.Request) {
-	log.Printf("[StartAuction] HTTP handler called")
 	id, ok := getAuctionID(r)
 	if !ok {
-		log.Printf("[StartAuction] Invalid auction ID")
 		http.Error(w, "Invalid auction ID", http.StatusBadRequest)
 		return
 	}
-	log.Printf("[StartAuction] Looking for auction ID: %d", id)
 	for i := range auctions {
 		if auctions[i].ID == id {
-			log.Printf("[StartAuction] Found auction: %s (ID: %d)", auctions[i].Name, id)
 			auctions[i].IsLive = true
 			auctions[i].Status = "live"
 			
@@ -662,7 +658,6 @@ func StartAuction(w http.ResponseWriter, r *http.Request) {
 			auction.Teams = getTeamsForAuction(auction)
 			auction.Players = getPlayersForAuction(auction)
 			
-			log.Printf("[StartAuction] Calling StartLiveAuction with %d teams, %d players", len(auction.Teams), len(auction.Players))
 			StartLiveAuction(auction.ID, auction)
 			if config.DB != nil {
 				go func(a Auction) {
@@ -673,11 +668,9 @@ func StartAuction(w http.ResponseWriter, r *http.Request) {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(map[string]bool{"success": true})
-			log.Printf("[StartAuction] Response sent")
 			return
 		}
 	}
-	log.Printf("[StartAuction] Auction not found: %d", id)
 	http.Error(w, "Auction not found", http.StatusNotFound)
 }
 

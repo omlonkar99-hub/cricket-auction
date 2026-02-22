@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -26,7 +25,7 @@ type PreAssignedSquad struct {
 }
 
 type RetentionChoice struct {
-	PlayerID int     `json:"playerId" bson:"playerId"`
+	PlayerID int64   `json:"playerId,string" bson:"playerId"`
 	Slot     int     `json:"slot" bson:"slot"`
 	Price    float64 `json:"price" bson:"price"`
 	Action   string  `json:"action" bson:"action"` // "retain" or "release"
@@ -97,6 +96,33 @@ func LoadRetentionAuctionsFromDB() {
 	}
 
 	retentionAuctions = loadedAuctions
+	
+	// Also load team retention submissions
+	loadTeamRetentionsFromDB()
+}
+
+// loadTeamRetentionsFromDB loads team retention submissions from database
+func loadTeamRetentionsFromDB() {
+	if config.DB == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	collection := config.GetCollection("team_retentions")
+	cursor, err := collection.Find(ctx, bson.M{})
+	if err != nil {
+		return
+	}
+	defer cursor.Close(ctx)
+
+	var loadedRetentions []TeamRetention
+	if err = cursor.All(ctx, &loadedRetentions); err != nil {
+		return
+	}
+
+	teamRetentions = loadedRetentions
 }
 
 // CreateRetentionAuction creates a new retention auction
@@ -325,9 +351,6 @@ func GetTeamAssignedPlayers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[RETENTION] Found auction: %s, SourceAuctionID: %v, PreAssignedSquads: %d, GeneralPoolPlayers: %d", 
-		auction.Name, auction.SourceAuctionID, len(auction.PreAssignedSquads), len(auction.GeneralPoolPlayers))
-
 	var assignedPlayerIDs []int64
 
 	if auction.SourceAuctionID != nil {
@@ -388,7 +411,7 @@ func SubmitTeamRetention(w http.ResponseWriter, r *http.Request) {
 		for _, item := range choicesRaw {
 			if choice, ok := item.(map[string]interface{}); ok {
 				choices = append(choices, RetentionChoice{
-					PlayerID: int(parseInt64(choice["playerId"])),
+					PlayerID: parseInt64(choice["playerId"]),
 					Slot:     int(choice["slot"].(float64)),
 					Price:    choice["price"].(float64),
 					Action:   choice["action"].(string),
@@ -420,24 +443,27 @@ func SubmitTeamRetention(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	retainedCount := 0
+	// Collect retained choices and validate
+	var retainedChoices []RetentionChoice
 	overseasCount := 0
 	totalCost := 0.0
 	allPlayers := getPlayersByIDs(getAllPlayerIDsFromChoices(choices))
 
 	for _, choice := range choices {
 		if choice.Action == "retain" {
-			retainedCount++
+			retainedChoices = append(retainedChoices, choice)
 			totalCost += choice.Price
 
 			for _, player := range allPlayers {
-				if player.ID == int64(choice.PlayerID) && player.IsOverseas {
+				if player.ID == choice.PlayerID && player.IsOverseas {
 					overseasCount++
 					break
 				}
 			}
 		}
 	}
+
+	retainedCount := len(retainedChoices)
 
 	if retainedCount > auction.MaxRetentions {
 		http.Error(w, "Exceeded maximum retentions", http.StatusBadRequest)
@@ -446,6 +472,46 @@ func SubmitTeamRetention(w http.ResponseWriter, r *http.Request) {
 
 	if overseasCount > auction.MaxOverseasRetention {
 		http.Error(w, "Exceeded overseas player limit in retentions", http.StatusBadRequest)
+		return
+	}
+
+	// CRITICAL: Validate sequential slot assignment
+	// Sort retained choices by slot number
+	slotMap := make(map[int]bool)
+	for _, choice := range retainedChoices {
+		slotMap[choice.Slot] = true
+	}
+
+	// Verify slots are sequential: 1, 2, 3, ... retainedCount
+	for i := 1; i <= retainedCount; i++ {
+		if !slotMap[i] {
+			http.Error(w, "Invalid slot assignment. Slots must be sequential (1, 2, 3...)", http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Verify no slots beyond retainedCount are used
+	for slot := range slotMap {
+		if slot > retainedCount {
+			http.Error(w, "Invalid slot assignment. Cannot skip slots", http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Recalculate total cost based on sequential slots to prevent manipulation
+	expectedCost := 0.0
+	for i := 1; i <= retainedCount; i++ {
+		for _, slotDef := range auction.RetentionSlots {
+			if slotDef.Slot == i {
+				expectedCost += slotDef.Price
+				break
+			}
+		}
+	}
+
+	// Allow small floating point differences
+	if totalCost < expectedCost-0.01 || totalCost > expectedCost+0.01 {
+		http.Error(w, "Invalid retention cost. Must match sequential slot prices", http.StatusBadRequest)
 		return
 	}
 
@@ -612,7 +678,7 @@ func StartLiveAuctionFromRetention(w http.ResponseWriter, r *http.Request) {
 	for _, submission := range submissions {
 		for _, choice := range submission.Choices {
 			if choice.Action == "retain" {
-				retainedPlayerIDs[int64(choice.PlayerID)] = true
+				retainedPlayerIDs[choice.PlayerID] = true
 			}
 		}
 	}
@@ -687,7 +753,7 @@ func StartLiveAuctionFromRetention(w http.ResponseWriter, r *http.Request) {
 				// Create auction result for retained player
 				result := AuctionResult{
 					AuctionID:  liveAuction.ID,
-					PlayerID:   int64(choice.PlayerID),
+					PlayerID:   choice.PlayerID,
 					TeamID:     submission.TeamID,
 					Price:      choice.Price,
 					Status:     "sold",
@@ -713,7 +779,7 @@ func StartLiveAuctionFromRetention(w http.ResponseWriter, r *http.Request) {
 				}
 				
 				// Track retained players
-				retainedPlayerMap[int64(choice.PlayerID)] = struct {
+				retainedPlayerMap[choice.PlayerID] = struct {
 					teamID int64
 					price  float64
 				}{submission.TeamID, choice.Price}
@@ -721,7 +787,7 @@ func StartLiveAuctionFromRetention(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	
-	// Load teams (budgets remain unchanged - they're managed during live auction)
+	// Load teams (budgets will be calculated dynamically when auction starts based on retention results)
 	liveAuction.Teams = getTeamsByIDs(liveAuction.SelectedTeams)
 	
 	// Load all players from SelectedPlayers
@@ -866,7 +932,7 @@ func getTeamPlayersFromPastAuction(auctionID int64, teamID int64) []int64 {
 func getAllPlayerIDsFromChoices(choices []RetentionChoice) []int64 {
 	var ids []int64
 	for _, choice := range choices {
-		ids = append(ids, int64(choice.PlayerID))
+		ids = append(ids, choice.PlayerID)
 	}
 	return ids
 }

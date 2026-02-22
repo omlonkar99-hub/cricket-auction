@@ -117,6 +117,30 @@ var (
 	liveAuctionsMux sync.RWMutex
 )
 
+// loadAuctionResults loads existing auction results from database
+func loadAuctionResults(auctionID int64) []AuctionResult {
+	if config.DB == nil {
+		return make([]AuctionResult, 0)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	collection := config.GetCollection("auction_results")
+	cursor, err := collection.Find(ctx, bson.M{"auctionId": auctionID})
+	if err != nil {
+		return make([]AuctionResult, 0)
+	}
+	defer cursor.Close(ctx)
+
+	var results []AuctionResult
+	if err = cursor.All(ctx, &results); err != nil {
+		return make([]AuctionResult, 0)
+	}
+
+	return results
+}
+
 // StartLiveAuction creates and starts an isolated auction worker
 func StartLiveAuction(auctionID int64, auction Auction) {
 	liveAuctionsMux.Lock()
@@ -128,17 +152,29 @@ func StartLiveAuction(auctionID int64, auction Auction) {
 	}
 	
 	// Create live auction state
-	// Set all teams to auction budget
+	// Load existing auction results first (for retention auctions with pre-assigned players)
+	existingResults := loadAuctionResults(auctionID)
+	
+	// Calculate spent budget per team from existing results
+	teamSpentBudget := make(map[int64]float64)
+	for _, result := range existingResults {
+		if result.Status == "sold" {
+			teamSpentBudget[result.TeamID] += result.Price
+		}
+	}
+	
+	// Set team budgets: auction budget minus already spent (from retention)
 	teamsWithBudget := make([]Team, len(auction.Teams))
 	for i, team := range auction.Teams {
 		teamsWithBudget[i] = team
-		teamsWithBudget[i].Budget = float64(auction.Budget)
+		spent := teamSpentBudget[team.ID]
+		teamsWithBudget[i].Budget = float64(auction.Budget) - spent
 	}
 	
 	live := &LiveAuction{
 		ID:                  auctionID,
 		Name:                auction.Name,
-		Teams:               teamsWithBudget, // Use teams with auction budget
+		Teams:               teamsWithBudget, // Use teams with correct budgets
 		Players:             auction.Players,
 		AllPlayersOriginal:  auction.Players, // Keep original list for frontend
 		Budget:              float64(auction.Budget),
@@ -156,7 +192,7 @@ func StartLiveAuction(auctionID int64, auction Auction) {
 		BidChannel:     make(chan Bid, 100),
 		ControlChannel: make(chan string, 10),
 		Clients:        make(map[*websocket.Conn]*ClientConn),
-		Results:        make([]AuctionResult, 0),
+		Results:        existingResults, // Load existing results (retained players)
 		
 		// Initialize cache
 		teamSnapshotsDirty: true,
@@ -464,7 +500,7 @@ func (la *LiveAuction) nextPlayer() {
 				PlayersLimit:       la.PlayersLimit,
 				OverseasLimit:      la.OverseasLimit,
 				Teams:              la.getTeamSnapshots(),
-				AllPlayers:         la.AllPlayersOriginal, // Send original list with all players
+				AllPlayers:         la.Players, // Send updated players list with current status
 			})
 			return
 		} else {
@@ -535,7 +571,7 @@ func (la *LiveAuction) nextPlayer() {
 		PlayersLimit:       la.PlayersLimit,
 		OverseasLimit:      la.OverseasLimit,
 		Teams:              la.getTeamSnapshots(),
-		AllPlayers:         la.AllPlayersOriginal, // Send original list with all players
+		AllPlayers:         la.Players, // Send updated players list with current status
 	})
 }
 

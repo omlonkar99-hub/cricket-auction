@@ -36,7 +36,6 @@ export default function RetentionWindow(props) {
       ]);
 
       if (!auctionRes.ok || !playersRes.ok) {
-        console.error('Failed to fetch - auction:', auctionRes.status, 'players:', playersRes.status);
         throw new Error('Failed to fetch data');
       }
 
@@ -91,7 +90,6 @@ export default function RetentionWindow(props) {
       
       setLoading(false);
     } catch (err) {
-      console.error('Error fetching data:', err);
       setError('Failed to load team data. Please try again.');
       setLoading(false);
     }
@@ -151,23 +149,19 @@ export default function RetentionWindow(props) {
       }
     }
 
-    // Get the next available slot automatically
-    const retainedChoices = Object.values(choices()).filter(c => c.action === 'retain');
-    const usedSlots = retainedChoices.map(c => c.slot);
-    const availableSlots = auction()?.retentionSlots?.filter(slot => !usedSlots.includes(slot.slot)) || [];
+    // Sequential slot assignment: next slot = current retained count + 1
+    const nextSlotNumber = retainedCount + 1;
+    const nextSlot = auction()?.retentionSlots?.find(slot => slot.slot === nextSlotNumber);
     
-    if (availableSlots.length === 0) {
+    if (!nextSlot) {
       setToast({ 
-        message: 'All retention slots are filled', 
+        message: 'No retention slot available', 
         type: 'error',
-        subMessage: 'Please release a player first'
+        subMessage: 'All slots are filled'
       });
       setTimeout(() => setToast(null), 3000);
       return;
     }
-    
-    // Automatically assign to the first available slot (lowest slot number)
-    const nextSlot = availableSlots.sort((a, b) => a.slot - b.slot)[0];
     
     setChoices(prev => ({
       ...prev,
@@ -190,17 +184,43 @@ export default function RetentionWindow(props) {
 
   const handleRelease = (playerId) => {
     const player = assignedPlayers().find(p => p.id === playerId);
+    const releasedSlot = choices()[playerId]?.slot;
     
+    // Release the player
     setChoices(prev => ({
       ...prev,
       [playerId]: { action: 'release', slot: null, price: 0 }
     }));
     
+    // Reassign slots sequentially for remaining retained players
+    if (releasedSlot) {
+      const retainedPlayers = Object.entries(choices())
+        .filter(([id, choice]) => id !== String(playerId) && choice.action === 'retain')
+        .sort((a, b) => a[1].slot - b[1].slot); // Sort by current slot order
+      
+      // Reassign slots 1, 2, 3... based on order
+      const updatedChoices = { ...choices() };
+      retainedPlayers.forEach(([id, choice], index) => {
+        const newSlotNumber = index + 1;
+        const newSlot = auction()?.retentionSlots?.find(s => s.slot === newSlotNumber);
+        if (newSlot) {
+          updatedChoices[id] = {
+            action: 'retain',
+            slot: newSlot.slot,
+            price: newSlot.price
+          };
+        }
+      });
+      
+      setChoices(updatedChoices);
+    }
+    
     // Show release toast
     if (player) {
       setToast({ 
         message: `${player.name} released`,
-        type: 'success'
+        type: 'success',
+        subMessage: releasedSlot ? 'Slots reassigned sequentially' : undefined
       });
       setTimeout(() => setToast(null), 2500);
     }
