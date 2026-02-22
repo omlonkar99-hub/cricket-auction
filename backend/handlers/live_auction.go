@@ -197,11 +197,34 @@ func StartLiveAuction(auctionID int64, auction Auction) {
 		// Initialize cache
 		teamSnapshotsDirty: true,
 	}
+	
+	// Update player status based on existing results (retained players)
+	for i := range live.Players {
+		for _, result := range existingResults {
+			if live.Players[i].ID == result.PlayerID && result.Status == "sold" {
+				live.Players[i].Status = "sold"
+				live.Players[i].TeamID = result.TeamID
+				live.Players[i].SoldPrice = result.Price
+				break
+			}
+		}
+	}
 
-	// Set first player
-	if len(live.Players) > 0 {
+	// Set first player (skip already sold/retained players)
+	for i := range live.Players {
+		if live.Players[i].Status != "sold" {
+			live.CurrentPlayer = &live.Players[i]
+			live.CurrentBid = live.CurrentPlayer.BasePrice
+			live.CurrentPlayerIndex = i
+			break
+		}
+	}
+	
+	// If all players are sold (shouldn't happen), set to first player
+	if live.CurrentPlayer == nil && len(live.Players) > 0 {
 		live.CurrentPlayer = &live.Players[0]
 		live.CurrentBid = live.CurrentPlayer.BasePrice
+		live.CurrentPlayerIndex = 0
 	}
 
 	liveAuctions[auctionID] = live
