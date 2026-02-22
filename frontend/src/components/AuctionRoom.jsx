@@ -652,12 +652,16 @@ export default function AuctionRoom(props) {
   const sendMessage = () => {
     const message = chatInput().trim();
     if (message) {
+      // Get current team data
+      const currentTeam = auctionTeams().find(t => String(t.id) === String(effectiveTeamId()));
+      
       const newMessage = {
         id: chatMessages().length + 1,
-        user: 'You',
+        user: currentTeam?.name || effectiveShortName() || 'You',
         message: message,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        team: 'MI',
+        team: currentTeam?.shortName || effectiveShortName() || 'YOU',
+        teamLogo: currentTeam?.logo,
         isOwn: true
       };
       setChatMessages([...chatMessages(), newMessage]);
@@ -1216,9 +1220,17 @@ export default function AuctionRoom(props) {
                         {(msg) => (
                           <div class={`flex ${msg.isOwn ? 'justify-end' : 'justify-start'} animate-slide-in`}>
                             <div class="flex items-start gap-2 py-1">
-                              <div class={`w-5 h-5 rounded-full ${msg.isOwn ? 'bg-blue-500' : 'bg-gradient-to-br from-blue-400 to-purple-500'} flex items-center justify-center text-[8px] font-bold flex-shrink-0`}>
-                                {msg.team}
-                              </div>
+                              <Show when={msg.teamLogo} fallback={
+                                <div class={`w-5 h-5 rounded-full ${msg.isOwn ? 'bg-blue-500' : 'bg-gradient-to-br from-blue-400 to-purple-500'} flex items-center justify-center text-[8px] font-bold flex-shrink-0`}>
+                                  {msg.team}
+                                </div>
+                              }>
+                                <img 
+                                  src={msg.teamLogo} 
+                                  alt={msg.team}
+                                  class="w-5 h-5 rounded-full object-cover flex-shrink-0"
+                                />
+                              </Show>
                               <div class="flex-1 min-w-0">
                                 <p class="text-[10px] font-semibold text-gray-400 mb-0.5">{msg.user}</p>
                                 <p class="text-xs text-gray-200 leading-relaxed">{msg.message}</p>

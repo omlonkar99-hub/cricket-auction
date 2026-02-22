@@ -99,12 +99,36 @@ export default function RetentionWindow(props) {
     const auc = auction();
     if (!auc || !auc.windowEndTime) return;
 
+    // Check if auction status changed to closed
+    if (auc.status === 'retention_closed' || auc.status === 'auction_live') {
+      setTimeRemaining('Window Closed');
+      // Auto-redirect after 2 seconds
+      setTimeout(() => {
+        props.onBack();
+      }, 2000);
+      return;
+    }
+
     const end = new Date(auc.windowEndTime);
     const now = new Date();
     const diff = end - now;
 
     if (diff <= 0) {
       setTimeRemaining('Window Closed');
+      // Check status periodically when window expires
+      setTimeout(async () => {
+        try {
+          const res = await apiCall(`/api/retention-auctions/${props.auctionId}`);
+          if (res.ok) {
+            const updatedAuction = await res.json();
+            if (updatedAuction.status === 'retention_closed' || updatedAuction.status === 'auction_live') {
+              props.onBack();
+            }
+          }
+        } catch (err) {
+          // Silent error
+        }
+      }, 3000);
       return;
     }
 

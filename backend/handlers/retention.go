@@ -704,11 +704,9 @@ func StartLiveAuctionFromRetention(w http.ResponseWriter, r *http.Request) {
 
 	releasedPlayerIDs = append(releasedPlayerIDs, retAuction.GeneralPoolPlayers...)
 	
-	// SelectedPlayers includes ALL players (retained + released) for tracking
+	// SelectedPlayers should ONLY include players available for bidding (released players)
+	// Retained players are tracked separately in Results but don't participate in auction
 	auctionPlayerIDs = releasedPlayerIDs
-	for retainedID := range retainedPlayerIDs {
-		auctionPlayerIDs = append(auctionPlayerIDs, retainedID)
-	}
 
 	now := time.Now()
 	liveAuction := Auction{

@@ -171,12 +171,44 @@ func StartLiveAuction(auctionID int64, auction Auction) {
 		teamsWithBudget[i].Budget = float64(auction.Budget) - spent
 	}
 	
+	// Create complete player list for frontend (includes retained players for display)
+	var allPlayersForFrontend []Player
+	
+	// Add players available for bidding
+	allPlayersForFrontend = append(allPlayersForFrontend, auction.Players...)
+	
+	// Add retained players from results (for team tab display)
+	retainedPlayerIDs := make(map[int64]bool)
+	for _, result := range existingResults {
+		if result.Status == "sold" {
+			retainedPlayerIDs[result.PlayerID] = true
+		}
+	}
+	
+	// Get retained player objects and add them to frontend list
+	for _, result := range existingResults {
+		if result.Status == "sold" {
+			// Find player in global store and add to frontend list
+			allPlayers := GetPlayersStore()
+			for _, player := range allPlayers {
+				if player.ID == result.PlayerID {
+					retainedPlayer := player
+					retainedPlayer.Status = "sold"
+					retainedPlayer.TeamID = result.TeamID
+					retainedPlayer.SoldPrice = result.Price
+					allPlayersForFrontend = append(allPlayersForFrontend, retainedPlayer)
+					break
+				}
+			}
+		}
+	}
+
 	live := &LiveAuction{
 		ID:                  auctionID,
 		Name:                auction.Name,
 		Teams:               teamsWithBudget, // Use teams with correct budgets
-		Players:             auction.Players,
-		AllPlayersOriginal:  auction.Players, // Keep original list for frontend
+		Players:             auction.Players, // Only players available for bidding
+		AllPlayersOriginal:  allPlayersForFrontend, // Complete list for frontend display
 		Budget:              float64(auction.Budget),
 		TimerDuration:       auction.TimerDuration, // Keep in seconds
 		MinBidIncrement:     0.25, // Minimum increment (allows 0.25, 0.50, 1.00 bids)
@@ -198,30 +230,11 @@ func StartLiveAuction(auctionID int64, auction Auction) {
 		teamSnapshotsDirty: true,
 	}
 	
-	// Update player status based on existing results (retained players)
-	for i := range live.Players {
-		for _, result := range existingResults {
-			if live.Players[i].ID == result.PlayerID && result.Status == "sold" {
-				live.Players[i].Status = "sold"
-				live.Players[i].TeamID = result.TeamID
-				live.Players[i].SoldPrice = result.Price
-				break
-			}
-		}
-	}
+	// Players array only contains bidding players, so no need to update status
+	// (retained players are not in this array)
 
-	// Set first player (skip already sold/retained players)
-	for i := range live.Players {
-		if live.Players[i].Status != "sold" {
-			live.CurrentPlayer = &live.Players[i]
-			live.CurrentBid = live.CurrentPlayer.BasePrice
-			live.CurrentPlayerIndex = i
-			break
-		}
-	}
-	
-	// If all players are sold (shouldn't happen), set to first player
-	if live.CurrentPlayer == nil && len(live.Players) > 0 {
+	// Set first player (all players in bidding queue are available)
+	if len(live.Players) > 0 {
 		live.CurrentPlayer = &live.Players[0]
 		live.CurrentBid = live.CurrentPlayer.BasePrice
 		live.CurrentPlayerIndex = 0
@@ -523,7 +536,7 @@ func (la *LiveAuction) nextPlayer() {
 				PlayersLimit:       la.PlayersLimit,
 				OverseasLimit:      la.OverseasLimit,
 				Teams:              la.getTeamSnapshots(),
-				AllPlayers:         la.Players, // Send updated players list with current status
+				AllPlayers:         la.AllPlayersOriginal, // Send complete list including retained players
 			})
 			return
 		} else {
@@ -594,7 +607,7 @@ func (la *LiveAuction) nextPlayer() {
 		PlayersLimit:       la.PlayersLimit,
 		OverseasLimit:      la.OverseasLimit,
 		Teams:              la.getTeamSnapshots(),
-		AllPlayers:         la.Players, // Send updated players list with current status
+		AllPlayers:         la.AllPlayersOriginal, // Send complete list including retained players
 	})
 }
 

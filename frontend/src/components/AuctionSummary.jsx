@@ -1364,55 +1364,51 @@ function TradeCard(props) {
         </div>
       </Show>
 
-      <div class="flex items-start gap-3">
-        {/* Team 1 */}
-        <div class="flex-1 min-w-0">
-          <div class="space-y-2">
+      <div class="space-y-3">
+        {/* Team 1 gives to Team 2 */}
+        <div class="bg-gray-900/30 rounded-lg p-3">
+          <div class="flex items-center gap-2 mb-2">
+            <Show when={team1Data()?.logo} fallback={
+              <div class="w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+                {team1Data()?.shortName}
+              </div>
+            }>
+              <img src={team1Data().logo} alt={team1Data().name} class="w-5 h-5 rounded-full flex-shrink-0"/>
+            </Show>
+            <span class="text-xs font-bold text-purple-400">{team1Data()?.name} gives:</span>
+          </div>
+          <div class="space-y-1 ml-7">
             <For each={team1Players()}>
               {(player) => (
-                <div>
-                  <div class="text-sm font-medium text-white truncate">→ {player?.name}</div>
-                  <div class="flex items-center gap-1.5 ml-4 mt-1">
-                    <Show when={team1Data()?.logo} fallback={
-                      <div class="w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
-                        {team1Data()?.shortName}
-                      </div>
-                    }>
-                      <img src={team1Data().logo} alt={team1Data().name} class="w-4 h-4 rounded-full flex-shrink-0"/>
-                    </Show>
-                    <span class="text-xs text-gray-400 truncate">{team1Data()?.name}</span>
-                  </div>
-                </div>
+                <div class="text-sm text-white">• {player?.name}</div>
               )}
             </For>
           </div>
         </div>
 
         {/* Swap Icon */}
-        <div class="flex-shrink-0 pt-1">
-          <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="flex justify-center">
+          <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
           </svg>
         </div>
 
-        {/* Team 2 */}
-        <div class="flex-1 min-w-0">
-          <div class="space-y-2">
+        {/* Team 2 gives to Team 1 */}
+        <div class="bg-gray-900/30 rounded-lg p-3">
+          <div class="flex items-center gap-2 mb-2">
+            <Show when={team2Data()?.logo} fallback={
+              <div class="w-5 h-5 rounded-full bg-pink-500 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+                {team2Data()?.shortName}
+              </div>
+            }>
+              <img src={team2Data().logo} alt={team2Data().name} class="w-5 h-5 rounded-full flex-shrink-0"/>
+            </Show>
+            <span class="text-xs font-bold text-pink-400">{team2Data()?.name} gives:</span>
+          </div>
+          <div class="space-y-1 ml-7">
             <For each={team2Players()}>
               {(player) => (
-                <div>
-                  <div class="text-sm font-medium text-white truncate">→ {player?.name}</div>
-                  <div class="flex items-center gap-1.5 ml-4 mt-1">
-                    <Show when={team2Data()?.logo} fallback={
-                      <div class="w-4 h-4 rounded-full bg-pink-500 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
-                        {team2Data()?.shortName}
-                      </div>
-                    }>
-                      <img src={team2Data().logo} alt={team2Data().name} class="w-4 h-4 rounded-full flex-shrink-0"/>
-                    </Show>
-                    <span class="text-xs text-gray-400 truncate">{team2Data()?.name}</span>
-                  </div>
-                </div>
+                <div class="text-sm text-white">• {player?.name}</div>
               )}
             </For>
           </div>
