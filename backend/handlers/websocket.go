@@ -25,6 +25,9 @@ var upgrader = websocket.Upgrader{
 		if origin == "http://localhost:3000" {
 			return true
 		}
+		if origin == "http://localhost:3001" {
+			return true
+		}
 		// Allow any .onrender.com domain
 		if strings.HasSuffix(origin, ".onrender.com") {
 			return true
