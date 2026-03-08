@@ -22,11 +22,15 @@ services:
 
   - type: web
     name: cricketive-auction
-    env: node
+    env: static
     rootDir: frontend
     buildCommand: npm install && npm run build
-    startCommand: npx serve -s dist -l 3000
+    staticPublishPath: ./dist
     healthCheckPath: /
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       - key: VITE_BACKEND_URL
         value: https://auction-backend-l24v.onrender.com
