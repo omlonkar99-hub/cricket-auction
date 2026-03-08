@@ -519,9 +519,9 @@ func (la *LiveAuction) nextPlayer() {
 			la.Players = unsoldPlayers
 			la.CurrentPlayerIndex = 0
 			la.CurrentPlayer = &la.Players[0]
-			la.CurrentBid = la.CurrentPlayer.BasePrice
-			la.CurrentBidder = nil
-			la.Timer = la.TimerDuration
+			la.CurrentBid = la.CurrentPlayer.BasePrice // Always start at base price
+			la.CurrentBidder = nil                      // No bidder yet
+			la.Timer = la.TimerDuration                 // Full timer
 			
 			// Broadcast unsold round start with complete state (includes first unsold player)
 			la.broadcast(AuctionUpdate{
@@ -530,8 +530,8 @@ func (la *LiveAuction) nextPlayer() {
 				CurrentPlayer:      la.CurrentPlayer,
 				CurrentPlayerIndex: la.CurrentPlayerIndex + 1, // 1-based for display
 				TotalPlayers:       len(la.Players),
-				CurrentBid:         la.CurrentBid,
-				CurrentBidder:      nil,
+				CurrentBid:         la.CurrentBid, // Will be base price
+				CurrentBidder:      nil,           // Explicitly nil
 				Timer:              la.Timer,
 				PlayersLimit:       la.PlayersLimit,
 				OverseasLimit:      la.OverseasLimit,
@@ -588,11 +588,11 @@ func (la *LiveAuction) nextPlayer() {
 		}
 	}
 
-	// Set next player
+	// Set next player - ensure clean state
 	la.CurrentPlayer = &la.Players[la.CurrentPlayerIndex]
-	la.CurrentBid = la.CurrentPlayer.BasePrice
-	la.CurrentBidder = nil
-	la.Timer = la.TimerDuration
+	la.CurrentBid = la.CurrentPlayer.BasePrice // Always start at base price
+	la.CurrentBidder = nil                      // No bidder yet
+	la.Timer = la.TimerDuration                 // Full timer
 
 	// Broadcast next player
 	la.broadcast(AuctionUpdate{
@@ -600,8 +600,8 @@ func (la *LiveAuction) nextPlayer() {
 		CurrentPlayer:      la.CurrentPlayer,
 		CurrentPlayerIndex: la.CurrentPlayerIndex + 1, // 1-based for display
 		TotalPlayers:       len(la.Players),
-		CurrentBid:         la.CurrentBid,
-		CurrentBidder:      nil,
+		CurrentBid:         la.CurrentBid, // Will be base price
+		CurrentBidder:      nil,           // Explicitly nil
 		Timer:              la.Timer,
 		TimerDuration:      la.TimerDuration,
 		PlayersLimit:       la.PlayersLimit,
