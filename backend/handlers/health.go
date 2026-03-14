@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
+
+	"cricket-auction/config"
 )
 
 type AuctionHealth struct {
@@ -17,6 +19,18 @@ type AuctionHealth struct {
 // Simple health check for UptimeRobot
 func HealthCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
+	// Verify DB is reachable
+	if err := config.PingDB(); err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":    "unhealthy",
+			"reason":    "database unreachable",
+			"timestamp": time.Now().Format(time.RFC3339),
+		})
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
 		"status":    "healthy",
