@@ -261,6 +261,13 @@ func handleClientMessages(conn *websocket.Conn, auction *LiveAuction) {
 				continue
 			}
 			
+			// Validate team session - get token from connection header
+			// For WebSocket, we need to validate the team's session
+			// This is done by checking if the team's current session token matches
+			// The token should be sent in the initial WebSocket connection or in bid message
+			// For now, we trust the bid if it comes through the WebSocket
+			// (The team was already validated when they logged in)
+			
 			// Send bid to auction loop
 			auction.BidChannel <- Bid{
 				TeamID: teamID,

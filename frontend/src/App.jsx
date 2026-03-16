@@ -32,8 +32,7 @@ function App() {
       setCurrentUser(user);
       setIsAuthenticated(true);
       
-      // Start unified session validation
-      startSessionValidation(token, role);
+      // No session validation needed - sessions persist until code/password change
     }
 
     // Restore last page/auction so refresh keeps user on same interface
@@ -59,75 +58,20 @@ function App() {
       } catch (_) {}
   });
 
-  // Session validation - only one mechanism per user
-  let sessionCheckInterval;
-  let consecutiveFailures = 0; // Track consecutive failures to avoid logout on temporary network issues
+  // Session validation - only validate on WebSocket connection for teams
+  // No continuous polling - sessions don't expire on inactivity
   
-  const startSessionValidation = (token, userRole) => {
-    if (userRole === 'team') {
-      // Team validation: more frequent, immediate logout
-      const teamId = localStorage.getItem('teamId');
-      if (!teamId) return;
-      
-      const validate = async () => {
-        try {
-          const res = await apiCall(`/api/auth/team-validate?teamId=${teamId}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          if (res.status === 401) {
-            handleLogout();
-            alert('Your session has expired. Please login again.');
-          } else {
-            consecutiveFailures = 0; // Reset on success
-          }
-        } catch (_) {
-          // Silent fail for team validation to avoid network error logouts
-        }
-      };
-
-      validate();
-      sessionCheckInterval = setInterval(validate, 30000); // 30 seconds
-      window.addEventListener('focus', validate);
-      
-    } else if (userRole === 'admin' || userRole === 'superadmin') {
-      // Admin validation: less frequent, 5-failure tolerance
-      sessionCheckInterval = setInterval(async () => {
-        try {
-          const res = await apiCall('/api/auth/validate', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          
-          if (!res.ok) {
-            consecutiveFailures++;
-            
-            // Only logout after 5 consecutive failures to avoid logout on temporary issues
-            if (consecutiveFailures >= 5) {
-              handleLogout();
-              alert('Your session has expired. Please login again.');
-            }
-          } else {
-            // Reset failure counter on success
-            consecutiveFailures = 0;
-          }
-        } catch (err) {
-          consecutiveFailures++;
-          
-          // Only logout after 5 consecutive failures
-          if (consecutiveFailures >= 5) {
-            handleLogout();
-            alert('Your session has expired. Please login again.');
-          }
-        }
-      }, 300000); // 5 minutes instead of 2 minutes
-    }
+  const validateSessionOnConnect = (token, userRole) => {
+    // For teams: validate only when connecting to WebSocket (in auction room)
+    // For admins: no validation needed - sessions persist until password change or code change
+    // Sessions are invalidated ONLY when:
+    // 1. Team code is changed by admin
+    // 2. Admin password is changed
+    // 3. Admin is deleted
   };
 
   onCleanup(() => {
-    if (sessionCheckInterval) {
-      clearInterval(sessionCheckInterval);
-    }
-    // Clean up window focus listener for team users
-    window.removeEventListener('focus', () => {});
+    // No session validation cleanup needed
   });
 
   // Persist route so refresh keeps same interface

@@ -109,11 +109,6 @@ func CreatePlayer(w http.ResponseWriter, r *http.Request) {
 		BasePrice:  req.BasePrice,
 		IsOverseas: req.IsOverseas,
 		Image:      req.Image,
-		// Auction-specific fields are left at zero values
-		// Order: 0 (will be set during auction creation)
-		// Status: "" (will be set when auction starts)
-		// TeamID: 0 (will be set when player is sold)
-		// SoldPrice: 0 (will be set when player is sold)
 		CreatedAt:  time.Now(),
 	}
 

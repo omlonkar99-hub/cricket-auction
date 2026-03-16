@@ -230,10 +230,7 @@ func StartLiveAuction(auctionID int64, auction Auction) {
 		teamSnapshotsDirty: true,
 	}
 	
-	// Players array only contains bidding players, so no need to update status
-	// (retained players are not in this array)
 
-	// Set first player (all players in bidding queue are available)
 	if len(live.Players) > 0 {
 		live.CurrentPlayer = &live.Players[0]
 		live.CurrentBid = live.CurrentPlayer.BasePrice

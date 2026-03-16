@@ -18,63 +18,29 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Session with timestamp for expiration
+// Session with timestamp for creation (no expiration based on inactivity)
 type SessionInfo struct {
 	Token     string
 	CreatedAt time.Time
-	LastUsed  time.Time
 }
 
-// teamSessions stores the current valid session per teamId
+// teamSessions stores the current valid session per teamId (in-memory cache)
 var (
 	teamSessions   = make(map[int64]*SessionInfo)
 	teamSessionsMux sync.RWMutex
 	
-	// adminSessions stores the current valid session per admin username
+	// adminSessions stores the current valid session per admin username (in-memory cache)
 	adminSessions   = make(map[string]*SessionInfo)
 	adminSessionsMux sync.RWMutex
-	
-	// Session expiration times
-	adminSessionExpiry = 24 * time.Hour  // 24 hours for admin
-	teamSessionExpiry  = 8 * time.Hour   // 8 hours for teams
 )
 
-// Initialize session cleanup
+// Initialize - load sessions from database on startup
 func init() {
-	// Clean up expired sessions every hour
-	go func() {
-		ticker := time.NewTicker(1 * time.Hour)
-		defer ticker.Stop()
-		for range ticker.C {
-			cleanupExpiredSessions()
-		}
-	}()
+	// Load sessions from database on startup
+	go loadSessionsFromDB()
 }
 
-// Clean up expired sessions
-func cleanupExpiredSessions() {
-	now := time.Now()
-	
-	// Clean team sessions
-	teamSessionsMux.Lock()
-	for teamId, session := range teamSessions {
-		if now.Sub(session.LastUsed) > teamSessionExpiry {
-			delete(teamSessions, teamId)
-		}
-	}
-	teamSessionsMux.Unlock()
-	
-	// Clean admin sessions
-	adminSessionsMux.Lock()
-	for username, session := range adminSessions {
-		if now.Sub(session.LastUsed) > adminSessionExpiry {
-			delete(adminSessions, username)
-		}
-	}
-	adminSessionsMux.Unlock()
-}
-
-// RegisterTeamSession stores the session for this team
+// RegisterTeamSession stores the session for this team (in memory and database)
 func RegisterTeamSession(teamId int64, token string) {
 	teamSessionsMux.Lock()
 	defer teamSessionsMux.Unlock()
@@ -82,18 +48,39 @@ func RegisterTeamSession(teamId int64, token string) {
 	teamSessions[teamId] = &SessionInfo{
 		Token:     token,
 		CreatedAt: now,
-		LastUsed:  now,
+	}
+	
+	// Persist to database
+	if config.DB != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			config.GetCollection("team_sessions").UpdateOne(
+				ctx,
+				bson.M{"_id": teamId},
+				bson.M{"$set": bson.M{"token": token, "createdAt": now}},
+				&mongo.UpdateOptions{Upsert: &[]bool{true}[0]},
+			)
+		}()
 	}
 }
 
-// InvalidateTeamSession removes the team's session so they must log in again with the new code.
+// InvalidateTeamSession removes the team's session (from memory and database)
 func InvalidateTeamSession(teamId int64) {
 	teamSessionsMux.Lock()
 	defer teamSessionsMux.Unlock()
 	delete(teamSessions, teamId)
+	
+	// Remove from database
+	if config.DB != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			config.GetCollection("team_sessions").DeleteOne(ctx, bson.M{"_id": teamId})
+		}()
+	}
 }
 
-// ValidateTeamSession returns true if the token is the current valid session for this team.
 func ValidateTeamSession(teamId int64, token string) bool {
 	teamSessionsMux.Lock()
 	defer teamSessionsMux.Unlock()
@@ -103,18 +90,10 @@ func ValidateTeamSession(teamId int64, token string) bool {
 		return false
 	}
 	
-	// Check if session is expired
-	if time.Since(session.LastUsed) > teamSessionExpiry {
-		delete(teamSessions, teamId)
-		return false
-	}
-	
-	// Update last used time
-	session.LastUsed = time.Now()
 	return true
 }
 
-// RegisterAdminSession stores the token for this admin
+// RegisterAdminSession stores the token for this admin (in memory and database)
 func RegisterAdminSession(username string, token string) {
 	adminSessionsMux.Lock()
 	defer adminSessionsMux.Unlock()
@@ -122,18 +101,41 @@ func RegisterAdminSession(username string, token string) {
 	adminSessions[username] = &SessionInfo{
 		Token:     token,
 		CreatedAt: now,
-		LastUsed:  now,
+	}
+	
+	// Persist to database
+	if config.DB != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			config.GetCollection("admin_sessions").UpdateOne(
+				ctx,
+				bson.M{"_id": username},
+				bson.M{"$set": bson.M{"token": token, "createdAt": now}},
+				&mongo.UpdateOptions{Upsert: &[]bool{true}[0]},
+			)
+		}()
 	}
 }
 
-// InvalidateAdminSession removes the admin's session so they must log in again
+// InvalidateAdminSession removes the admin's session (from memory and database)
 func InvalidateAdminSession(username string) {
 	adminSessionsMux.Lock()
 	defer adminSessionsMux.Unlock()
 	delete(adminSessions, username)
+	
+	// Remove from database
+	if config.DB != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			config.GetCollection("admin_sessions").DeleteOne(ctx, bson.M{"_id": username})
+		}()
+	}
 }
 
 // ValidateAdminSession returns true if the token is the current valid session for this admin
+// Does NOT update LastUsed - sessions don't expire on inactivity
 func ValidateAdminSession(username string, token string) bool {
 	adminSessionsMux.Lock()
 	defer adminSessionsMux.Unlock()
@@ -143,15 +145,59 @@ func ValidateAdminSession(username string, token string) bool {
 		return false
 	}
 	
-	// Check if session is expired
-	if time.Since(session.LastUsed) > adminSessionExpiry {
-		delete(adminSessions, username)
-		return false
+	return true
+}
+
+// loadSessionsFromDB loads all sessions from database into memory on startup
+func loadSessionsFromDB() {
+	if config.DB == nil {
+		return
 	}
 	
-	// Update last used time
-	session.LastUsed = time.Now()
-	return true
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	
+	// Load team sessions
+	cursor, err := config.GetCollection("team_sessions").Find(ctx, bson.M{})
+	if err == nil {
+		defer cursor.Close(ctx)
+		var sessions []bson.M
+		if err := cursor.All(ctx, &sessions); err == nil {
+			teamSessionsMux.Lock()
+			for _, sess := range sessions {
+				if teamId, ok := sess["_id"].(int64); ok {
+					if token, ok := sess["token"].(string); ok {
+						teamSessions[teamId] = &SessionInfo{
+							Token:     token,
+							CreatedAt: sess["createdAt"].(time.Time),
+						}
+					}
+				}
+			}
+			teamSessionsMux.Unlock()
+		}
+	}
+	
+	// Load admin sessions
+	cursor, err = config.GetCollection("admin_sessions").Find(ctx, bson.M{})
+	if err == nil {
+		defer cursor.Close(ctx)
+		var sessions []bson.M
+		if err := cursor.All(ctx, &sessions); err == nil {
+			adminSessionsMux.Lock()
+			for _, sess := range sessions {
+				if username, ok := sess["_id"].(string); ok {
+					if token, ok := sess["token"].(string); ok {
+						adminSessions[username] = &SessionInfo{
+							Token:     token,
+							CreatedAt: sess["createdAt"].(time.Time),
+						}
+					}
+				}
+			}
+			adminSessionsMux.Unlock()
+		}
+	}
 }
 
 type Admin struct {
@@ -180,7 +226,6 @@ type ChangePasswordRequest struct {
 	NewPassword string `json:"newPassword"`
 }
 
-// InitializeDefaultAdmin creates default superadmin if not exists
 func InitializeDefaultAdmin() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -209,7 +254,6 @@ func InitializeDefaultAdmin() {
 		return
 	}
 
-	// Default superadmin created - change password immediately
 }
 
 // Login authenticates admin and returns session token
@@ -280,8 +324,6 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// TeamLogin lets a user join as a team by entering the team's 5-letter code.
-// Returns token, teamId, teamName, shortName so the client can bid for that team in live auctions.
 func TeamLogin(w http.ResponseWriter, r *http.Request) {
 	var req TeamLoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

@@ -9,7 +9,6 @@ var (
 	idMux           sync.Mutex
 )
 
-// InitializeIDCounter sets the ID counter based on existing data
 func InitializeIDCounter(maxID int64) {
 	idMux.Lock()
 	defer idMux.Unlock()
@@ -18,7 +17,6 @@ func InitializeIDCounter(maxID int64) {
 	}
 }
 
-// newID returns a unique, monotonically increasing ID starting from 1
 func newID() int64 {
 	idMux.Lock()
 	defer idMux.Unlock()

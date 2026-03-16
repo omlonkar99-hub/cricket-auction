@@ -9,6 +9,7 @@ export function useAuctionWebSocketSolid(auctionId) {
   const [bidHistory, setBidHistory] = createSignal([]); // Track all bids and events
   const [unsoldPlayers, setUnsoldPlayers] = createSignal([]); // Track unsold players
   const [soldPlayers, setSoldPlayers] = createSignal([]); // Track sold players
+  const [playersByTeam, setPlayersByTeam] = createSignal({}); // Track players by team ID for quick lookup
   const [ping, setPing] = createSignal(0); // Real WebSocket latency
   let ws = null;
   let reconnectTimeout = null;
@@ -292,6 +293,19 @@ export function useAuctionWebSocketSolid(auctionId) {
                 const player = allPlayers.find(p => p.name === playerName);
                 if (player) {
                   setSoldPlayers((prev) => [...prev, player]);
+                  // Track player by team for quick lookup
+                  setPlayersByTeam((prev) => {
+                    const teamId = String(soldTeam?.id || '');
+                    const teamPlayers = prev[teamId] || [];
+                    // Avoid duplicates
+                    if (!teamPlayers.find(p => p.id === player.id)) {
+                      return {
+                        ...prev,
+                        [teamId]: [...teamPlayers, { ...player, soldPrice: price }]
+                      };
+                    }
+                    return prev;
+                  });
                   // Remove from unsold list if present (sold during unsold round)
                   setUnsoldPlayers((prev) => prev.filter(p => p.id !== player.id));
                 }
@@ -495,6 +509,7 @@ export function useAuctionWebSocketSolid(auctionId) {
     bidHistory, 
     unsoldPlayers, 
     soldPlayers, 
+    playersByTeam,
     ping,
     enterAuctionRoom,
     leaveAuctionRoom

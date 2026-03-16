@@ -74,7 +74,7 @@ export default function AuctionRoom(props) {
     }
   };
 
-  const { auctionState: liveState, isConnected, placeBid: sendBid, getNextBidAmount, sendControl, lastMessageTime, bidHistory, unsoldPlayers, soldPlayers, ping, enterAuctionRoom, leaveAuctionRoom } = useAuctionWebSocketSolid(auctionId);
+  const { auctionState: liveState, isConnected, placeBid: sendBid, getNextBidAmount, sendControl, lastMessageTime, bidHistory, unsoldPlayers, soldPlayers, playersByTeam, ping, enterAuctionRoom, leaveAuctionRoom } = useAuctionWebSocketSolid(auctionId);
 
   // Who is bidding: team-code user's team OR admin's chosen team (admin does not get team from login)
   const effectiveTeamId = () => {
@@ -1250,16 +1250,9 @@ export default function AuctionRoom(props) {
                   <For each={auctionTeams()}>
                     {(team) => {
                       const teamPlayers = () => {
-                        // Get sold players from WebSocket state that belong to this team
-                        const allPlayersList = liveState()?.allPlayers || [];
-                        
-                        // Find players that were sold to this team
-                        const teamSoldPlayers = allPlayersList.filter(p => {
-                          // Check if player is sold and belongs to this team (compare as strings for int64 IDs)
-                          return p.status === 'sold' && String(p.teamId) === String(team.id);
-                        });
-                        
-                        return teamSoldPlayers;
+                        // Get players for this team from the playersByTeam tracking
+                        const teamId = String(team.id);
+                        return playersByTeam()[teamId] || [];
                       };
                       
                       return (

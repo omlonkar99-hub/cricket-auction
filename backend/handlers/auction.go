@@ -678,9 +678,12 @@ func StartAuction(w http.ResponseWriter, r *http.Request) {
 func UpdateAuction(w http.ResponseWriter, r *http.Request) {
 	id, ok := getAuctionID(r)
 	if !ok {
+		log.Printf("[UPDATE_AUCTION] Invalid auction ID in request")
 		http.Error(w, "Invalid auction ID", http.StatusBadRequest)
 		return
 	}
+	log.Printf("[UPDATE_AUCTION] Attempting to update auction ID: %d", id)
+	
 	var req struct {
 		Name                string             `json:"name"`
 		Description         string             `json:"description"`
@@ -696,9 +699,11 @@ func UpdateAuction(w http.ResponseWriter, r *http.Request) {
 		PlayerOrder         map[string][]int64 `json:"playerOrder"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("[UPDATE_AUCTION] JSON decode error: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	log.Printf("[UPDATE_AUCTION] Decoded request: name=%s, teams=%d, players=%d", req.Name, len(req.SelectedTeams), len(req.SelectedPlayers))
 	allTeams := GetTeamsStore()
 	allPlayers := GetPlayersStore()
 	var selectedTeams []Team
@@ -721,7 +726,9 @@ func UpdateAuction(w http.ResponseWriter, r *http.Request) {
 	}
 	for i := range auctions {
 		if auctions[i].ID == id {
+			log.Printf("[UPDATE_AUCTION] Found auction in memory. Current status: %s, IsLive: %v", auctions[i].Status, auctions[i].IsLive)
 			if auctions[i].IsLive || auctions[i].Status == "completed" {
+				log.Printf("[UPDATE_AUCTION] Cannot update: auction is live or completed")
 				http.Error(w, "Cannot update live or completed auction", http.StatusBadRequest)
 				return
 			}
@@ -739,11 +746,17 @@ func UpdateAuction(w http.ResponseWriter, r *http.Request) {
 			auctions[i].PlayerOrder = req.PlayerOrder
 			auctions[i].Teams = selectedTeams
 			auctions[i].Players = selectedPlayers
+			log.Printf("[UPDATE_AUCTION] Updated auction in memory successfully")
 			if config.DB != nil {
 				go func(a Auction) {
 					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 					defer cancel()
-					config.GetCollection("auctions").ReplaceOne(ctx, bson.M{"_id": a.ID}, a)
+					_, err := config.GetCollection("auctions").ReplaceOne(ctx, bson.M{"_id": a.ID}, a)
+					if err != nil {
+						log.Printf("[UPDATE_AUCTION] DB save error: %v", err)
+					} else {
+						log.Printf("[UPDATE_AUCTION] DB save successful")
+					}
 				}(auctions[i])
 			}
 			w.Header().Set("Content-Type", "application/json")
@@ -753,13 +766,16 @@ func UpdateAuction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fallback: update in DB if not present in memory (e.g., after restart)
+	log.Printf("[UPDATE_AUCTION] Auction not found in memory, trying DB fallback")
 	if config.DB != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		var existing Auction
 		err := config.GetCollection("auctions").FindOne(ctx, bson.M{"_id": id}).Decode(&existing)
 		if err == nil {
+			log.Printf("[UPDATE_AUCTION] Found auction in DB. Status: %s, IsLive: %v", existing.Status, existing.IsLive)
 			if existing.IsLive || existing.Status == "completed" {
+				log.Printf("[UPDATE_AUCTION] Cannot update: auction is live or completed")
 				http.Error(w, "Cannot update live or completed auction", http.StatusBadRequest)
 				return
 			}
@@ -781,15 +797,19 @@ func UpdateAuction(w http.ResponseWriter, r *http.Request) {
 			if _, err := config.GetCollection("auctions").ReplaceOne(ctx, bson.M{"_id": id}, existing); err == nil {
 				// Update in-memory cache
 				auctions = append(auctions, existing)
+				log.Printf("[UPDATE_AUCTION] DB update successful, added to memory cache")
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(existing)
 				return
+			} else {
+				log.Printf("[UPDATE_AUCTION] DB update failed: %v", err)
 			}
 		}
 		if err != nil && err != mongo.ErrNoDocuments {
-			// Silent error
+			log.Printf("[UPDATE_AUCTION] DB lookup error: %v", err)
 		}
 	}
+	log.Printf("[UPDATE_AUCTION] Auction not found in memory or DB")
 	http.Error(w, "Auction not found", http.StatusNotFound)
 }
 
