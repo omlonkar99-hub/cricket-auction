@@ -15,6 +15,7 @@ import (
 	"cricket-auction/config"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -59,7 +60,7 @@ func RegisterTeamSession(teamId int64, token string) {
 				ctx,
 				bson.M{"_id": teamId},
 				bson.M{"$set": bson.M{"token": token, "createdAt": now}},
-				&mongo.UpdateOptions{Upsert: &[]bool{true}[0]},
+				options.Update().SetUpsert(true),
 			)
 		}()
 	}
@@ -112,7 +113,7 @@ func RegisterAdminSession(username string, token string) {
 				ctx,
 				bson.M{"_id": username},
 				bson.M{"$set": bson.M{"token": token, "createdAt": now}},
-				&mongo.UpdateOptions{Upsert: &[]bool{true}[0]},
+				options.Update().SetUpsert(true),
 			)
 		}()
 	}
