@@ -291,17 +291,20 @@ export function useAuctionWebSocketSolid(auctionId) {
                 });
                 // Add to sold players list
                 const player = allPlayers.find(p => p.name === playerName);
-                if (player) {
+                if (player && soldTeam) {
                   setSoldPlayers((prev) => [...prev, player]);
-                  // Track player by team for quick lookup
+                  // Track player by team for quick lookup - use teamId from update if available
                   setPlayersByTeam((prev) => {
-                    const teamId = String(soldTeam?.id || '');
+                    // Use teamId from update.currentBidder if available, otherwise from soldTeam
+                    const teamId = String(update.currentBidder?.id || soldTeam?.id || '');
+                    if (!teamId) return prev;
+                    
                     const teamPlayers = prev[teamId] || [];
                     // Avoid duplicates
                     if (!teamPlayers.find(p => p.id === player.id)) {
                       return {
                         ...prev,
-                        [teamId]: [...teamPlayers, { ...player, soldPrice: price }]
+                        [teamId]: [...teamPlayers, { ...player, soldPrice: parseFloat(price) }]
                       };
                     }
                     return prev;
