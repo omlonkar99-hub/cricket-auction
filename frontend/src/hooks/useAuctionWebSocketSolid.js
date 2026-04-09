@@ -276,8 +276,6 @@ export function useAuctionWebSocketSolid(auctionId) {
               });
               break;
             case 'player_sold':
-              if (update.teams) setAuctionState((prev) => prev && ({ ...prev, teams: update.teams }));
-              
               // Play sold sound
               soundManager.play('sold');
               

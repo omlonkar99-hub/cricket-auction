@@ -1249,12 +1249,6 @@ export default function AuctionRoom(props) {
                 <div class="space-y-2">
                   <For each={auctionTeams()}>
                     {(team) => {
-                      // Use playersByTeam signal which is updated incrementally
-                      const teamPlayers = createMemo(() => {
-                        const teamIdStr = String(team.id);
-                        return playersByTeam()[teamIdStr] || [];
-                      });
-                      
                       return (
                         <div class="bg-gray-900 rounded-xl p-3 hover:bg-gray-800 transition-colors border border-gray-800">
                           <div 
@@ -1317,33 +1311,39 @@ export default function AuctionRoom(props) {
                             </button>
                           </div>
                           
-                          {/* Show players when expanded - CONSISTENT SIZING */}
+                          {/* Show players when expanded - Access playersByTeam directly for reactivity */}
                           <Show when={expandedTeam() === team.shortName}>
-                            <div class="mt-2 pt-2 border-t border-gray-800 space-y-1.5">
-                              <Show when={teamPlayers().length === 0}>
-                                <p class="text-xs text-gray-500 text-center py-2">No players yet</p>
-                              </Show>
-                              <For each={teamPlayers()}>
-                                {(player) => (
-                                  <div class="flex items-center justify-between text-xs bg-gray-800/50 rounded-lg p-2">
-                                    <div class="flex items-center gap-2 min-w-0 flex-1">
-                                      <Show when={player.image} fallback={
-                                        <div class="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
-                                          {player.name.split(' ').map(n => n[0]).join('')}
+                            {(() => {
+                              const teamIdStr = String(team.id);
+                              const players = playersByTeam()[teamIdStr] || [];
+                              return (
+                                <div class="mt-2 pt-2 border-t border-gray-800 space-y-1.5">
+                                  <Show when={players.length === 0}>
+                                    <p class="text-xs text-gray-500 text-center py-2">No players yet</p>
+                                  </Show>
+                                  <For each={players}>
+                                    {(player) => (
+                                      <div class="flex items-center justify-between text-xs bg-gray-800/50 rounded-lg p-2">
+                                        <div class="flex items-center gap-2 min-w-0 flex-1">
+                                          <Show when={player.image} fallback={
+                                            <div class="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+                                              {player.name.split(' ').map(n => n[0]).join('')}
+                                            </div>
+                                          }>
+                                            <img src={player.image} alt={player.name} class="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                                          </Show>
+                                          <span class="font-medium truncate">{player.name}</span>
                                         </div>
-                                      }>
-                                        <img src={player.image} alt={player.name} class="w-7 h-7 rounded-full object-cover flex-shrink-0" />
-                                      </Show>
-                                      <span class="font-medium truncate">{player.name}</span>
-                                    </div>
-                                    <div class="flex items-center gap-2 flex-shrink-0">
-                                      <span class="text-gray-400 text-[10px]">{shortenRole(player.role)}</span>
-                                      <span class="text-emerald-400 font-semibold">₹{player.soldPrice?.toFixed(1) || player.basePrice?.toFixed(1)}Cr</span>
-                                    </div>
-                                  </div>
-                                )}
-                              </For>
-                            </div>
+                                        <div class="flex items-center gap-2 flex-shrink-0">
+                                          <span class="text-gray-400 text-[10px]">{shortenRole(player.role)}</span>
+                                          <span class="text-emerald-400 font-semibold">₹{player.soldPrice?.toFixed(1) || player.basePrice?.toFixed(1)}Cr</span>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </For>
+                                </div>
+                              );
+                            })()}
                           </Show>
                         </div>
                       );
