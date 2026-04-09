@@ -25,6 +25,12 @@ export function useAuctionWebSocketSolid(auctionId) {
 
     // Ensure ID is a string to avoid precision loss
     const auctionIdStr = String(currentAuctionId);
+    
+    // Clear playersByTeam for this new auction (prevent old auction data from showing)
+    setPlayersByTeam({});
+    setBidHistory([]);
+    setSoldPlayers([]);
+    setUnsoldPlayers([]);
 
     const connect = () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -276,22 +282,25 @@ export function useAuctionWebSocketSolid(auctionId) {
               soundManager.play('sold');
               
               // Use the soldPlayer from the update (includes full details)
-              if (update.soldPlayer) {
+              if (update.soldPlayer && update.soldPlayer.status === 'sold') {
                 // Get teamId from soldPlayer or currentBidder (both should have it)
                 const teamId = String(update.soldPlayer.teamId || update.currentBidder?.id || '');
                 
                 if (teamId) {
-                  // Add to playersByTeam for team tab display
+                  // Add to playersByTeam for team tab display - always create new object for reactivity
                   setPlayersByTeam((prev) => {
                     const teamPlayers = prev[teamId] || [];
                     // Avoid duplicates
-                    if (!teamPlayers.find(p => String(p.id) === String(update.soldPlayer.id))) {
+                    const exists = teamPlayers.find(p => String(p.id) === String(update.soldPlayer.id));
+                    if (!exists) {
+                      // Create completely new object to trigger reactivity
                       return {
                         ...prev,
                         [teamId]: [...teamPlayers, update.soldPlayer]
                       };
                     }
-                    return prev;
+                    // Even if duplicate, return new object to ensure reactivity
+                    return { ...prev };
                   });
                 }
                 
