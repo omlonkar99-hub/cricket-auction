@@ -1249,11 +1249,12 @@ export default function AuctionRoom(props) {
                 <div class="space-y-2">
                   <For each={auctionTeams()}>
                     {(team) => {
-                      const teamPlayers = () => {
+                      const teamPlayers = createMemo(() => {
                         // Get players for this team from playersByTeam (built incrementally)
                         const teamId = String(team.id);
-                        return playersByTeam()[teamId] || [];
-                      };
+                        const players = playersByTeam()[teamId] || [];
+                        return players;
+                      });
                       
                       return (
                         <div class="bg-gray-900 rounded-xl p-3 hover:bg-gray-800 transition-colors border border-gray-800">
