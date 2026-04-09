@@ -283,16 +283,21 @@ export function useAuctionWebSocketSolid(auctionId) {
               
               // Use the soldPlayer from the update (includes full details)
               if (update.soldPlayer && update.soldPlayer.status === 'sold') {
-                // Update allPlayers in state - create NEW array reference for reactivity
+                // CRITICAL: Update allPlayers with NEW array reference for reactivity
                 setAuctionState((prev) => {
                   if (!prev?.allPlayers) return prev;
                   
-                  // Create new array with updated player - this triggers reactivity
+                  // Create completely new array with updated player
                   const updatedPlayers = prev.allPlayers.map(p => 
                     String(p.id) === String(update.soldPlayer.id) ? update.soldPlayer : p
                   );
                   
-                  return { ...prev, allPlayers: updatedPlayers };
+                  // Return new state object with new allPlayers array
+                  return { 
+                    ...prev, 
+                    allPlayers: updatedPlayers,
+                    teams: update.teams || prev.teams // Also update teams here
+                  };
                 });
                 
                 // Also update the local allPlayers reference
