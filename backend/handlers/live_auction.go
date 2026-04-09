@@ -425,18 +425,30 @@ func (la *LiveAuction) finalizePlayer() {
 			break
 		}
 	}
+	
+	// Also update in AllPlayersOriginal (for frontend display)
+	for i := range la.AllPlayersOriginal {
+		if la.AllPlayersOriginal[i].ID == la.CurrentPlayer.ID {
+			la.AllPlayersOriginal[i].Status = result.Status
+			if result.Status == "sold" {
+				la.AllPlayersOriginal[i].TeamID = result.TeamID
+				la.AllPlayersOriginal[i].SoldPrice = result.Price
+			}
+			break
+		}
+	}
 
 	// Write to MongoDB (async, non-blocking)
 	go writeResultToDB(result)
 
-	// Broadcast player finalized (sold/unsold) - don't send allPlayers here (already sent in initial state)
+	// Broadcast player finalized (sold/unsold)
 	la.broadcast(AuctionUpdate{
 		Type:          updateType,
 		Message:       message,
 		PlayersLimit:  la.PlayersLimit,
 		OverseasLimit: la.OverseasLimit,
 		Teams:         la.getTeamSnapshots(),
-		// AllPlayers removed - only send in initial_state and next_player to reduce payload
+		AllPlayers:    la.AllPlayersOriginal, // Send updated players so frontend can see sold status
 	})
 	
 	la.nextPlayer()

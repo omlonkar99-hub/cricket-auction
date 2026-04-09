@@ -1250,9 +1250,15 @@ export default function AuctionRoom(props) {
                   <For each={auctionTeams()}>
                     {(team) => {
                       const teamPlayers = () => {
-                        // Get players for this team from the playersByTeam tracking
-                        const teamId = String(team.id);
-                        return playersByTeam()[teamId] || [];
+                        // Get sold players from WebSocket state that belong to this team
+                        const allPlayersList = liveState()?.allPlayers || [];
+                        
+                        // Find players that were sold to this team (compare as strings for int64 IDs)
+                        const teamSoldPlayers = allPlayersList.filter(p => {
+                          return p.status === 'sold' && String(p.teamId) === String(team.id);
+                        });
+                        
+                        return teamSoldPlayers;
                       };
                       
                       return (

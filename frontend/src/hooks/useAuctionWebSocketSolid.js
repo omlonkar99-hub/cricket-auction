@@ -300,8 +300,8 @@ export function useAuctionWebSocketSolid(auctionId) {
                     if (!teamId) return prev;
                     
                     const teamPlayers = prev[teamId] || [];
-                    // Avoid duplicates
-                    if (!teamPlayers.find(p => p.id === player.id)) {
+                    // Avoid duplicates - compare as strings
+                    if (!teamPlayers.find(p => String(p.id) === String(player.id))) {
                       return {
                         ...prev,
                         [teamId]: [...teamPlayers, { ...player, soldPrice: parseFloat(price) }]
@@ -309,8 +309,8 @@ export function useAuctionWebSocketSolid(auctionId) {
                     }
                     return prev;
                   });
-                  // Remove from unsold list if present (sold during unsold round)
-                  setUnsoldPlayers((prev) => prev.filter(p => p.id !== player.id));
+                  // Remove from unsold list if present (sold during unsold round) - compare as strings
+                  setUnsoldPlayers((prev) => prev.filter(p => String(p.id) !== String(player.id)));
                 }
               }
               break;
