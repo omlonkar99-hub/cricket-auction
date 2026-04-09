@@ -1311,17 +1311,21 @@ export default function AuctionRoom(props) {
                             </button>
                           </div>
                           
-                          {/* Show players when expanded - Access playersByTeam directly for reactivity */}
+                          {/* Show players when expanded */}
                           <Show when={expandedTeam() === team.shortName}>
                             {(() => {
-                              const teamIdStr = String(team.id);
-                              const players = playersByTeam()[teamIdStr] || [];
+                              // Filter allPlayers directly - same pattern as upcoming tab
+                              const allPlayersList = liveState()?.allPlayers || [];
+                              const teamPlayers = allPlayersList.filter(p => 
+                                p.status === 'sold' && String(p.teamId) === String(team.id)
+                              );
+                              
                               return (
                                 <div class="mt-2 pt-2 border-t border-gray-800 space-y-1.5">
-                                  <Show when={players.length === 0}>
+                                  <Show when={teamPlayers.length === 0}>
                                     <p class="text-xs text-gray-500 text-center py-2">No players yet</p>
                                   </Show>
-                                  <For each={players}>
+                                  <For each={teamPlayers}>
                                     {(player) => (
                                       <div class="flex items-center justify-between text-xs bg-gray-800/50 rounded-lg p-2">
                                         <div class="flex items-center gap-2 min-w-0 flex-1">
