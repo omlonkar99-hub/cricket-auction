@@ -1250,10 +1250,11 @@ export default function AuctionRoom(props) {
                   <For each={auctionTeams()}>
                     {(team) => {
                       const teamPlayers = createMemo(() => {
-                        // Get players for this team from playersByTeam (built incrementally)
-                        const teamId = String(team.id);
-                        const players = playersByTeam()[teamId] || [];
-                        return players;
+                        // Filter allPlayers like upcoming tab does (reactive to allPlayers changes)
+                        const allPlayersList = liveState()?.allPlayers || [];
+                        return allPlayersList.filter(p => 
+                          p.status === 'sold' && String(p.teamId) === String(team.id)
+                        );
                       });
                       
                       return (

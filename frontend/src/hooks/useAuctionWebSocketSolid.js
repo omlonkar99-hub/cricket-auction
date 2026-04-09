@@ -283,6 +283,23 @@ export function useAuctionWebSocketSolid(auctionId) {
               
               // Use the soldPlayer from the update (includes full details)
               if (update.soldPlayer && update.soldPlayer.status === 'sold') {
+                // Update allPlayers in state so upcoming/team tabs see the change
+                setAuctionState((prev) => {
+                  if (!prev?.allPlayers) return prev;
+                  
+                  const updatedPlayers = prev.allPlayers.map(p => 
+                    String(p.id) === String(update.soldPlayer.id) ? update.soldPlayer : p
+                  );
+                  
+                  return { ...prev, allPlayers: updatedPlayers };
+                });
+                
+                // Also update the local allPlayers reference
+                const playerIndex = allPlayers.findIndex(p => String(p.id) === String(update.soldPlayer.id));
+                if (playerIndex !== -1) {
+                  allPlayers[playerIndex] = update.soldPlayer;
+                }
+                
                 // Get teamId from soldPlayer or currentBidder (both should have it)
                 const teamId = String(update.soldPlayer.teamId || update.currentBidder?.id || '');
                 
