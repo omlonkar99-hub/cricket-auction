@@ -1,4 +1,4 @@
-import { createSignal, onMount, onCleanup, Show, For, createEffect, createMemo } from 'solid-js';
+import { createSignal, onMount, onCleanup, Show, For, createEffect, createMemo, Index } from 'solid-js';
 import SkeletonLoader from './SkeletonLoader';
 import { useAuctionWebSocketSolid } from '../hooks/useAuctionWebSocketSolid';
 import { soundManager } from '../utils/soundManager';
@@ -834,33 +834,36 @@ export default function AuctionRoom(props) {
                 </div>
               </Show>
               
-              <select
-                value={adminPlayingAsTeamId() ?? ''}
-                onChange={(e) => {
-                  const idStr = e.target.value;
-                  if (!idStr) {
-                    selectAdminTeam(null, null);
-                    return;
-                  }
-                  
-                  // Find team by string comparison to handle int64 IDs properly
-                  const team = auctionTeams().find(t => String(t.id) === idStr);
-                  if (team) {
-                    selectAdminTeam(idStr, team.shortName || team.name);
-                  } else {
-                    selectAdminTeam(null, null);
-                  }
-                }}
-                class="bg-gray-800/80 border border-gray-700/80 rounded px-1.5 py-0.5 text-[10px] text-gray-300 focus:outline-none focus:border-gray-600 min-w-0 max-w-[72px]"
-                title="Bid as team"
-              >
-                <option value="">Spectate</option>
-                <For each={auctionTeams()}>
-                  {(t) => (
-                    <option value={String(t.id)}>{t.shortName || t.name}</option>
-                  )}
-                </For>
-              </select>
+              {/* Memoized Team Selector - Prevents re-render on every bid */}
+              {createMemo(() => (
+                <select
+                  value={adminPlayingAsTeamId() ?? ''}
+                  onChange={(e) => {
+                    const idStr = e.target.value;
+                    if (!idStr) {
+                      selectAdminTeam(null, null);
+                      return;
+                    }
+                    
+                    const team = auctionTeams().find(t => String(t.id) === idStr);
+                    if (team) {
+                      selectAdminTeam(idStr, team.shortName || team.name);
+                    } else {
+                      selectAdminTeam(null, null);
+                    }
+                  }}
+                  class="bg-gray-800/80 border border-gray-700/80 rounded px-1.5 py-0.5 text-[10px] text-gray-300 focus:outline-none focus:border-gray-600 min-w-0 max-w-[72px]"
+                  title="Bid as team"
+                >
+                  <option value="">Spectate</option>
+                  <For each={auctionTeams()}>
+                    {(t) => (
+                      <option value={String(t.id)}>{t.shortName || t.name}</option>
+                    )}
+                  </For>
+                </select>
+              ))}
+              
               <button onClick={() => sendControl('skip')} class="px-1.5 py-0.5 rounded text-[10px] text-gray-400 hover:text-white hover:bg-gray-700/80" title="Skip player">Skip</button>
               
               {/* Show Pause OR Resume based on state */}
@@ -1249,6 +1252,9 @@ export default function AuctionRoom(props) {
                 <div class="space-y-2">
                   <For each={auctionTeams()}>
                     {(team) => {
+                      // Memoize team players to track playersByTeam changes
+                      const teamPlayers = createMemo(() => playersByTeam()[String(team.id)] || []);
+                      
                       return (
                         <div class="bg-gray-900 rounded-xl p-3 hover:bg-gray-800 transition-colors border border-gray-800">
                           <div 
@@ -1313,24 +1319,16 @@ export default function AuctionRoom(props) {
                           
                           {/* Show players when expanded */}
                           <Show when={expandedTeam() === team.shortName}>
-                            {(() => {
-                              // Filter allPlayers directly - same pattern as upcoming tab
-                              const allPlayersList = liveState()?.allPlayers || [];
-                              const teamPlayers = allPlayersList.filter(p => 
-                                p.status === 'sold' && String(p.teamId) === String(team.id)
-                              );
-                              
-                              return (
-                                <div class="mt-2 pt-2 border-t border-gray-800 space-y-1.5">
-                                  <Show when={teamPlayers.length === 0}>
-                                    <p class="text-xs text-gray-500 text-center py-2">No players yet</p>
-                                  </Show>
-                                  <For each={teamPlayers}>
-                                    {(player) => (
-                                      <div class="flex items-center justify-between text-xs bg-gray-800/50 rounded-lg p-2">
-                                        <div class="flex items-center gap-2 min-w-0 flex-1">
-                                          <Show when={player.image} fallback={
-                                            <div class="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+                            <div class="mt-2 pt-2 border-t border-gray-800 space-y-1.5">
+                              <Show when={teamPlayers().length === 0}>
+                                <p class="text-xs text-gray-500 text-center py-2">No players yet</p>
+                              </Show>
+                              <For each={teamPlayers()}>
+                                {(player) => (
+                                  <div class="flex items-center justify-between text-xs bg-gray-800/50 rounded-lg p-2">
+                                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                                      <Show when={player.image} fallback={
+                                        <div class="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
                                               {player.name.split(' ').map(n => n[0]).join('')}
                                             </div>
                                           }>
@@ -1346,8 +1344,6 @@ export default function AuctionRoom(props) {
                                     )}
                                   </For>
                                 </div>
-                              );
-                            })()}
                           </Show>
                         </div>
                       );
