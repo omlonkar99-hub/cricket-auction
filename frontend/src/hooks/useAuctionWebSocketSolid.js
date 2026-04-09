@@ -109,6 +109,15 @@ export function useAuctionWebSocketSolid(auctionId) {
             case 'initial_state':
             case 'state':
               setAuctionState(update);
+              
+              // Clear playersByTeam for new auction to prevent showing old data
+              if (update.type === 'initial_state') {
+                setPlayersByTeam({});
+                setBidHistory([]);
+                setSoldPlayers([]);
+                setUnsoldPlayers([]);
+              }
+              
               if (update.allPlayers) {
                 allPlayers = update.allPlayers;
                 // Smart preloading: only current + next 4 players + team logos
