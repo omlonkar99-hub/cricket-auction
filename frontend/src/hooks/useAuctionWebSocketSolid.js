@@ -126,8 +126,12 @@ export function useAuctionWebSocketSolid(auctionId) {
               
               if (update.allPlayers) {
                 allPlayers = update.allPlayers;
-                // Smart preloading: only current + next 4 players + team logos
+                // Smart preloading: current player first (high priority), then next 4 players + team logos
                 if (update.currentPlayer) {
+                  // CRITICAL: Preload current player image FIRST with high priority
+                  imagePreloader.preload(update.currentPlayer.image, 'high');
+                  
+                  // Then preload next players
                   const currentIndex = update.currentPlayerIndex - 1; // Convert from 1-based to 0-based
                   imagePreloader.preloadNextPlayers(update.allPlayers, currentIndex, 4);
                 }
