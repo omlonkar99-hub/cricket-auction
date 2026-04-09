@@ -85,7 +85,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	auction.Clients[conn] = clientConn
 	auction.ClientsMux.Unlock()
 	
-	// Send initial state
+	// Send initial state (send AllPlayers once for upcoming/unsold tabs)
 	initialState := AuctionUpdate{
 		Type:               "initial_state",
 		CurrentPlayer:      auction.CurrentPlayer,
@@ -100,14 +100,13 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		PlayersLimit:       auction.PlayersLimit,
 		OverseasLimit:      auction.OverseasLimit,
 		Teams:              auction.getTeamSnapshots(),
-		AllPlayers:         auction.AllPlayersOriginal, // Send original list with all players
+		AllPlayers:         auction.AllPlayersOriginal, // Send once for upcoming/unsold tabs
 	}
 	
 	data, _ := json.Marshal(initialState)
 	clientConn.Mutex.Lock()
 	conn.WriteMessage(websocket.TextMessage, data)
 	clientConn.Mutex.Unlock()
-	conn.WriteMessage(websocket.TextMessage, data)
 	
 	// Listen for messages from this client
 	go handleClientMessages(conn, auction)
@@ -137,7 +136,7 @@ func waitForAuctionStart(conn *websocket.Conn, auctionID int64) {
 				auction.Clients[conn] = clientConn
 				auction.ClientsMux.Unlock()
 				
-				// Send initial state
+				// Send initial state (send AllPlayers once for upcoming/unsold tabs)
 				initialState := AuctionUpdate{
 					Type:               "initial_state",
 					CurrentPlayer:      auction.CurrentPlayer,
@@ -152,7 +151,7 @@ func waitForAuctionStart(conn *websocket.Conn, auctionID int64) {
 					PlayersLimit:       auction.PlayersLimit,
 					OverseasLimit:      auction.OverseasLimit,
 					Teams:              auction.getTeamSnapshots(),
-					AllPlayers:         auction.AllPlayersOriginal,
+					AllPlayers:         auction.AllPlayersOriginal, // Send once for upcoming/unsold tabs
 				}
 				
 				data, _ := json.Marshal(initialState)

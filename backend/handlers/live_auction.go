@@ -96,6 +96,7 @@ type AuctionUpdate struct {
 	OverseasLimit      int                `json:"overseasLimit,omitempty"`
 	Teams              []LiveTeamSnapshot `json:"teams,omitempty"`
 	AllPlayers         []Player           `json:"allPlayers,omitempty"` // All players in auction for preloading
+	SoldPlayer         *Player            `json:"soldPlayer,omitempty"` // The player that was just sold (for incremental updates)
 	Message            string             `json:"message,omitempty"`
 	TeamID             int64              `json:"teamId,string,omitempty"` // For targeted messages
 }
@@ -441,14 +442,22 @@ func (la *LiveAuction) finalizePlayer() {
 	// Write to MongoDB (async, non-blocking)
 	go writeResultToDB(result)
 
-	// Broadcast player finalized (sold/unsold)
+	// Broadcast player finalized (sold/unsold) - include sold player details for incremental updates
+	soldPlayerCopy := *la.CurrentPlayer // Make a copy with updated status
+	soldPlayerCopy.Status = result.Status
+	if result.Status == "sold" {
+		soldPlayerCopy.TeamID = result.TeamID
+		soldPlayerCopy.SoldPrice = result.Price
+	}
+	
 	la.broadcast(AuctionUpdate{
 		Type:          updateType,
 		Message:       message,
+		SoldPlayer:    &soldPlayerCopy, // Send the sold player with full details
 		PlayersLimit:  la.PlayersLimit,
 		OverseasLimit: la.OverseasLimit,
 		Teams:         la.getTeamSnapshots(),
-		AllPlayers:    la.AllPlayersOriginal, // Send updated players so frontend can see sold status
+		// Don't send AllPlayers here - causes lag on skip
 	})
 	
 	la.nextPlayer()
@@ -545,7 +554,7 @@ func (la *LiveAuction) nextPlayer() {
 				PlayersLimit:       la.PlayersLimit,
 				OverseasLimit:      la.OverseasLimit,
 				Teams:              la.getTeamSnapshots(),
-				AllPlayers:         la.AllPlayersOriginal, // Send complete list including retained players
+				// Don't send AllPlayers here - causes lag
 			})
 			return
 		} else {
@@ -616,7 +625,7 @@ func (la *LiveAuction) nextPlayer() {
 		PlayersLimit:       la.PlayersLimit,
 		OverseasLimit:      la.OverseasLimit,
 		Teams:              la.getTeamSnapshots(),
-		AllPlayers:         la.AllPlayersOriginal, // Send complete list including retained players
+		// Don't send AllPlayers here - causes lag when moving to next player
 	})
 }
 

@@ -262,56 +262,50 @@ export function useAuctionWebSocketSolid(auctionId) {
               break;
             case 'player_sold':
               if (update.teams) setAuctionState((prev) => prev && ({ ...prev, teams: update.teams }));
-              // Update allPlayers if provided (contains updated player status)
-              if (update.allPlayers) {
-                setAuctionState((prev) => prev && ({ ...prev, allPlayers: update.allPlayers }));
-                allPlayers = update.allPlayers;
-              }
+              
               // Play sold sound
               soundManager.play('sold');
-              // Add sold message to history (limit to last 100)
+              
+              // Use the soldPlayer from the update (includes full details)
+              if (update.soldPlayer) {
+                // Add to playersByTeam for team tab display
+                setPlayersByTeam((prev) => {
+                  const teamId = String(update.soldPlayer.teamId);
+                  if (!teamId) return prev;
+                  
+                  const teamPlayers = prev[teamId] || [];
+                  // Avoid duplicates
+                  if (!teamPlayers.find(p => String(p.id) === String(update.soldPlayer.id))) {
+                    return {
+                      ...prev,
+                      [teamId]: [...teamPlayers, update.soldPlayer]
+                    };
+                  }
+                  return prev;
+                });
+                
+                setSoldPlayers((prev) => [...prev, update.soldPlayer]);
+              }
+              
+              // Parse message for bid history
               const soldMsg = update.message || 'Player SOLD';
               const soldMatch = soldMsg.match(/(.+) SOLD to (.+) for ₹(.+)/);
               if (soldMatch) {
                 const [, playerName, teamName, price] = soldMatch;
-                // Find team color from teams
                 const soldTeam = update.teams?.find(t => t.name === teamName);
+                
                 setBidHistory((prev) => {
                   const newHistory = [...prev, {
                     type: 'sold',
                     playerName,
                     team: teamName,
                     teamColor: soldTeam?.color || '#10B981',
-                    teamLogo: soldTeam?.logo, // Add team logo
+                    teamLogo: soldTeam?.logo,
                     price: parseFloat(price),
                     timestamp: Date.now()
                   }];
-                  // Keep only last 100 for performance
                   return newHistory.length > 100 ? newHistory.slice(-100) : newHistory;
                 });
-                // Add to sold players list
-                const player = allPlayers.find(p => p.name === playerName);
-                if (player && soldTeam) {
-                  setSoldPlayers((prev) => [...prev, player]);
-                  // Track player by team for quick lookup - use teamId from update if available
-                  setPlayersByTeam((prev) => {
-                    // Use teamId from update.currentBidder if available, otherwise from soldTeam
-                    const teamId = String(update.currentBidder?.id || soldTeam?.id || '');
-                    if (!teamId) return prev;
-                    
-                    const teamPlayers = prev[teamId] || [];
-                    // Avoid duplicates - compare as strings
-                    if (!teamPlayers.find(p => String(p.id) === String(player.id))) {
-                      return {
-                        ...prev,
-                        [teamId]: [...teamPlayers, { ...player, soldPrice: parseFloat(price) }]
-                      };
-                    }
-                    return prev;
-                  });
-                  // Remove from unsold list if present (sold during unsold round) - compare as strings
-                  setUnsoldPlayers((prev) => prev.filter(p => String(p.id) !== String(player.id)));
-                }
               }
               break;
             case 'player_unsold':
