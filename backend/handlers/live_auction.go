@@ -454,6 +454,7 @@ func (la *LiveAuction) finalizePlayer() {
 		Type:          updateType,
 		Message:       message,
 		SoldPlayer:    &soldPlayerCopy, // Send the sold player with full details
+		CurrentBidder: la.CurrentBidder, // Also send current bidder for team ID reference
 		PlayersLimit:  la.PlayersLimit,
 		OverseasLimit: la.OverseasLimit,
 		Teams:         la.getTeamSnapshots(),

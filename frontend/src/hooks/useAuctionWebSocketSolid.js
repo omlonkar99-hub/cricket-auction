@@ -268,21 +268,23 @@ export function useAuctionWebSocketSolid(auctionId) {
               
               // Use the soldPlayer from the update (includes full details)
               if (update.soldPlayer) {
-                // Add to playersByTeam for team tab display
-                setPlayersByTeam((prev) => {
-                  const teamId = String(update.soldPlayer.teamId);
-                  if (!teamId) return prev;
-                  
-                  const teamPlayers = prev[teamId] || [];
-                  // Avoid duplicates
-                  if (!teamPlayers.find(p => String(p.id) === String(update.soldPlayer.id))) {
-                    return {
-                      ...prev,
-                      [teamId]: [...teamPlayers, update.soldPlayer]
-                    };
-                  }
-                  return prev;
-                });
+                // Get teamId from soldPlayer or currentBidder (both should have it)
+                const teamId = String(update.soldPlayer.teamId || update.currentBidder?.id || '');
+                
+                if (teamId) {
+                  // Add to playersByTeam for team tab display
+                  setPlayersByTeam((prev) => {
+                    const teamPlayers = prev[teamId] || [];
+                    // Avoid duplicates
+                    if (!teamPlayers.find(p => String(p.id) === String(update.soldPlayer.id))) {
+                      return {
+                        ...prev,
+                        [teamId]: [...teamPlayers, update.soldPlayer]
+                      };
+                    }
+                    return prev;
+                  });
+                }
                 
                 setSoldPlayers((prev) => [...prev, update.soldPlayer]);
               }
