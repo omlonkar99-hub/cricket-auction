@@ -153,8 +153,13 @@ func StartLiveAuction(auctionID int64, auction Auction) {
 	}
 	
 	// Create live auction state
-	// Load existing auction results first (for retention auctions with pre-assigned players)
-	existingResults := loadAuctionResults(auctionID)
+	// Load existing auction results ONLY for retention auctions (pre-assigned players)
+	var existingResults []AuctionResult
+	if auction.Type == "retention" {
+		existingResults = loadAuctionResults(auctionID)
+	} else {
+		existingResults = make([]AuctionResult, 0)
+	}
 	
 	// Calculate spent budget per team from existing results
 	teamSpentBudget := make(map[int64]float64)
@@ -172,33 +177,35 @@ func StartLiveAuction(auctionID int64, auction Auction) {
 		teamsWithBudget[i].Budget = float64(auction.Budget) - spent
 	}
 	
-	// Create complete player list for frontend (includes retained players for display)
+	// Create complete player list for frontend
 	var allPlayersForFrontend []Player
 	
 	// Add players available for bidding
 	allPlayersForFrontend = append(allPlayersForFrontend, auction.Players...)
 	
-	// Add retained players from results (for team tab display)
-	retainedPlayerIDs := make(map[int64]bool)
-	for _, result := range existingResults {
-		if result.Status == "sold" {
-			retainedPlayerIDs[result.PlayerID] = true
+	// Add retained players from results ONLY for retention auctions (for team tab display)
+	if auction.Type == "retention" {
+		retainedPlayerIDs := make(map[int64]bool)
+		for _, result := range existingResults {
+			if result.Status == "sold" {
+				retainedPlayerIDs[result.PlayerID] = true
+			}
 		}
-	}
-	
-	// Get retained player objects and add them to frontend list
-	for _, result := range existingResults {
-		if result.Status == "sold" {
-			// Find player in global store and add to frontend list
-			allPlayers := GetPlayersStore()
-			for _, player := range allPlayers {
-				if player.ID == result.PlayerID {
-					retainedPlayer := player
-					retainedPlayer.Status = "sold"
-					retainedPlayer.TeamID = result.TeamID
-					retainedPlayer.SoldPrice = result.Price
-					allPlayersForFrontend = append(allPlayersForFrontend, retainedPlayer)
-					break
+		
+		// Get retained player objects and add them to frontend list
+		for _, result := range existingResults {
+			if result.Status == "sold" {
+				// Find player in global store and add to frontend list
+				allPlayers := GetPlayersStore()
+				for _, player := range allPlayers {
+					if player.ID == result.PlayerID {
+						retainedPlayer := player
+						retainedPlayer.Status = "sold"
+						retainedPlayer.TeamID = result.TeamID
+						retainedPlayer.SoldPrice = result.Price
+						allPlayersForFrontend = append(allPlayersForFrontend, retainedPlayer)
+						break
+					}
 				}
 			}
 		}

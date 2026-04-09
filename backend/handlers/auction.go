@@ -1126,8 +1126,9 @@ func getPlayersForAuction(auction Auction) []Player {
 	// First try to get from global store
 	players := getPlayersByIDs(auction.SelectedPlayers)
 	
-	// For completed auctions OR auctions with retention data, merge with results to get sold status
-	if (auction.Status == "completed" || auction.Status == "upcoming") && config.DB != nil {
+	// Only load results for COMPLETED auctions (to show historical data)
+	// For upcoming/live auctions, reset all player statuses (fresh start)
+	if auction.Status == "completed" && config.DB != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		
@@ -1149,14 +1150,16 @@ func getPlayersForAuction(auction Auction) []Player {
 							players[i].TeamID = result.TeamID
 							players[i].SoldPrice = result.Price
 						}
-					} else if auction.Status == "upcoming" {
-						// For upcoming auctions, players without results are in the pool
-						players[i].Status = "upcoming"
-						players[i].TeamID = 0
-						players[i].SoldPrice = 0
 					}
 				}
 			}
+		}
+	} else {
+		// For upcoming/live auctions, reset all player statuses (fresh start)
+		for i := range players {
+			players[i].Status = ""
+			players[i].TeamID = 0
+			players[i].SoldPrice = 0
 		}
 	}
 	

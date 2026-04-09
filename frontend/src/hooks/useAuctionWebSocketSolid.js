@@ -283,10 +283,11 @@ export function useAuctionWebSocketSolid(auctionId) {
               
               // Use the soldPlayer from the update (includes full details)
               if (update.soldPlayer && update.soldPlayer.status === 'sold') {
-                // Update allPlayers in state so upcoming/team tabs see the change
+                // Update allPlayers in state - create NEW array reference for reactivity
                 setAuctionState((prev) => {
                   if (!prev?.allPlayers) return prev;
                   
+                  // Create new array with updated player - this triggers reactivity
                   const updatedPlayers = prev.allPlayers.map(p => 
                     String(p.id) === String(update.soldPlayer.id) ? update.soldPlayer : p
                   );

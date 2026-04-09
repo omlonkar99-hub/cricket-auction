@@ -1249,13 +1249,13 @@ export default function AuctionRoom(props) {
                 <div class="space-y-2">
                   <For each={auctionTeams()}>
                     {(team) => {
-                      const teamPlayers = createMemo(() => {
-                        // Filter allPlayers like upcoming tab does (reactive to allPlayers changes)
+                      // Use function instead of memo - directly access reactive signal
+                      const teamPlayers = () => {
                         const allPlayersList = liveState()?.allPlayers || [];
                         return allPlayersList.filter(p => 
                           p.status === 'sold' && String(p.teamId) === String(team.id)
                         );
-                      });
+                      };
                       
                       return (
                         <div class="bg-gray-900 rounded-xl p-3 hover:bg-gray-800 transition-colors border border-gray-800">
