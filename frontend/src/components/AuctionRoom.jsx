@@ -1253,6 +1253,25 @@ export default function AuctionRoom(props) {
                   <For each={auctionTeams()}>
                     {(team) => {
                       const teamIdStr = String(team.id);
+                      const [refreshing, setRefreshing] = createSignal(false);
+                      
+                      // Auto-trigger refresh when a player is sold to this team
+                      createEffect(() => {
+                        const allPlayers = liveState()?.allPlayers || [];
+                        const teamPlayers = allPlayers.filter(p => String(p.teamId) === teamIdStr && p.status === 'sold');
+                        
+                        // If there are players for this team, trigger a brief refresh animation
+                        if (teamPlayers.length > 0) {
+                          setRefreshing(true);
+                          setTimeout(() => setRefreshing(false), 300);
+                        }
+                      });
+                      
+                      const handleManualRefresh = (e) => {
+                        e.stopPropagation();
+                        setRefreshing(true);
+                        setTimeout(() => setRefreshing(false), 600);
+                      };
                       
                       return (
                         <div class="bg-gray-900 rounded-xl p-3 hover:bg-gray-800 transition-colors border border-gray-800">
@@ -1303,6 +1322,25 @@ export default function AuctionRoom(props) {
                                 </div>
                               </div>
                             </div>
+                            
+                            {/* Refresh Icon */}
+                            <button 
+                              onClick={handleManualRefresh}
+                              class="w-7 h-7 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-all flex-shrink-0 ml-1"
+                              title="Refresh team players"
+                            >
+                              <svg 
+                                class={`w-3.5 h-3.5 transition-transform ${refreshing() ? 'animate-spin' : ''}`}
+                                fill="none" 
+                                stroke="currentColor" 
+                                stroke-width="2" 
+                                viewBox="0 0 24 24"
+                              >
+                                <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                            </button>
+                            
+                            {/* Expand/Collapse Icon */}
                             <button class="w-7 h-7 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-all flex-shrink-0">
                               <svg 
                                 class={`w-3.5 h-3.5 transition-transform ${expandedTeam() === team.shortName ? 'rotate-90' : ''}`} 
