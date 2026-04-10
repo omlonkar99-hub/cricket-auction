@@ -1,6 +1,8 @@
 import { createSignal, createEffect, onMount, onCleanup, Show, Switch, Match } from 'solid-js';
+import { apiCall } from './utils/api.js';
 import Login from './components/Login';
 
+const ROUTE_KEY = 'app_route';
 import HomePage from './components/HomePage';
 import AuctionsPage from './components/AuctionsPage';
 import DashboardHome from './components/DashboardHome';
@@ -14,23 +16,6 @@ function App() {
   const [currentUser, setCurrentUser] = createSignal(null);
   const [isAuthenticated, setIsAuthenticated] = createSignal(false);
   const [showLogin, setShowLogin] = createSignal(false);
-
-  // Initialize history state
-  const initializeHistoryState = () => {
-    const state = window.history.state;
-    if (state && state.page) {
-      setCurrentPage(state.page);
-      if (state.auctionData) {
-        setSelectedAuction({
-          ...state.auctionData,
-          id: state.auctionData.id != null ? String(state.auctionData.id) : state.auctionData.id
-        });
-      }
-    } else {
-      // First load - push initial state
-      window.history.replaceState({ page: 'home' }, '', '/');
-    }
-  };
 
   onMount(() => {
     const token = localStorage.getItem('authToken');
@@ -46,71 +31,59 @@ function App() {
       }
       setCurrentUser(user);
       setIsAuthenticated(true);
+      
+      // No session validation needed - sessions persist until code/password change
     }
 
-    // Initialize history state
-    initializeHistoryState();
-
-    // Handle browser back/forward buttons
-    const handlePopState = (event) => {
-      const state = event.state;
-      if (state && state.page) {
-        setCurrentPage(state.page);
-        if (state.auctionData) {
-          setSelectedAuction({
-            ...state.auctionData,
-            id: state.auctionData.id != null ? String(state.auctionData.id) : state.auctionData.id
-          });
-        } else {
-          setSelectedAuction(null);
+    // Restore last page/auction so refresh keeps user on same interface
+    try {
+      const saved = sessionStorage.getItem(ROUTE_KEY);
+        if (saved) {
+          const { page, auctionId, auctionName, auctionData } = JSON.parse(saved);
+          if (page && ['home', 'auctions', 'dashboard', 'auction', 'editAuction'].includes(page)) {
+            const needAuth = page === 'dashboard' || page === 'editAuction';
+            if (needAuth && !token) {
+              setCurrentPage('home');
+            } else {
+              setCurrentPage(page);
+              if (page === 'auction' && auctionId != null) {
+                setSelectedAuction({ id: String(auctionId), name: auctionName || 'Auction' });
+              }
+              if (page === 'editAuction' && auctionData) {
+                setSelectedAuction({ ...auctionData, id: auctionData?.id != null ? String(auctionData.id) : auctionData?.id });
+              }
+            }
+          }
         }
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    onCleanup(() => window.removeEventListener('popstate', handlePopState));
+      } catch (_) {}
   });
 
-  // Update URL and history when page changes
+  // Session validation - only validate on WebSocket connection for teams
+  // No continuous polling - sessions don't expire on inactivity
+  
+  const validateSessionOnConnect = (token, userRole) => {
+    // For teams: validate only when connecting to WebSocket (in auction room)
+    // For admins: no validation needed - sessions persist until password change or code change
+    // Sessions are invalidated ONLY when:
+    // 1. Team code is changed by admin
+    // 2. Admin password is changed
+    // 3. Admin is deleted
+  };
+
+  onCleanup(() => {
+    // No session validation cleanup needed
+  });
+
+  // Persist route so refresh keeps same interface
   createEffect(() => {
     const page = currentPage();
     const auction = selectedAuction();
-    
-    let url = '/';
-    let state = { page };
-    
-    switch (page) {
-      case 'home':
-        url = '/';
-        break;
-      case 'auctions':
-        url = '/auctions';
-        break;
-      case 'dashboard':
-        url = '/dashboard';
-        break;
-      case 'auction':
-        if (auction) {
-          url = `/auction/${auction.id}`;
-          state.auctionData = auction;
-        }
-        break;
-      case 'retentionAuction':
-        if (auction) {
-          url = `/retention/${auction.id}`;
-          state.auctionData = auction;
-        }
-        break;
-      case 'editAuction':
-        if (auction) {
-          url = `/auction/${auction.id}/edit`;
-          state.auctionData = auction;
-        }
-        break;
-    }
-    
-    // Push state to history
-    window.history.pushState(state, '', url);
+    sessionStorage.setItem(ROUTE_KEY, JSON.stringify({
+      page,
+      auctionId: page === 'auction' && auction ? auction.id : null,
+      auctionName: page === 'auction' && auction ? auction.name : null,
+      auctionData: page === 'editAuction' && auction ? auction : null
+    }));
   });
 
   const handleLogin = (userData) => {
@@ -125,11 +98,11 @@ function App() {
     localStorage.removeItem('username');
     localStorage.removeItem('role');
     localStorage.removeItem('teamId');
+    sessionStorage.removeItem(ROUTE_KEY);
     setCurrentUser(null);
     setIsAuthenticated(false);
     setCurrentPage('home');
     setSelectedAuction(null);
-    window.history.pushState({ page: 'home' }, '', '/');
   };
 
   const handleNavigate = (page, auctionData) => {

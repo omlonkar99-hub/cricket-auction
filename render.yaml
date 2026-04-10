@@ -28,17 +28,6 @@ services:
     staticPublishPath: ./dist
     healthCheckPath: /
     routes:
-      # Serve static files directly
-      - type: static
-        source: /assets
-        destination: /assets
-      - type: static
-        source: /favicon.svg
-        destination: /favicon.svg
-      - type: static
-        source: /sounds
-        destination: /sounds
-      # Rewrite all other routes to index.html for SPA routing
       - type: rewrite
         source: /*
         destination: /index.html
