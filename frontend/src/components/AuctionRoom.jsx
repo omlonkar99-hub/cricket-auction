@@ -1253,25 +1253,6 @@ export default function AuctionRoom(props) {
                   <For each={auctionTeams()}>
                     {(team) => {
                       const teamIdStr = String(team.id);
-                      const [refreshing, setRefreshing] = createSignal(false);
-                      
-                      // Auto-trigger refresh when a player is sold to this team
-                      createEffect(() => {
-                        const allPlayers = liveState()?.allPlayers || [];
-                        const teamPlayers = allPlayers.filter(p => String(p.teamId) === teamIdStr && p.status === 'sold');
-                        
-                        // If there are players for this team, trigger a brief refresh animation
-                        if (teamPlayers.length > 0) {
-                          setRefreshing(true);
-                          setTimeout(() => setRefreshing(false), 300);
-                        }
-                      });
-                      
-                      const handleManualRefresh = (e) => {
-                        e.stopPropagation();
-                        setRefreshing(true);
-                        setTimeout(() => setRefreshing(false), 600);
-                      };
                       
                       return (
                         <div class="bg-gray-900 rounded-xl p-3 hover:bg-gray-800 transition-colors border border-gray-800">
@@ -1292,29 +1273,29 @@ export default function AuctionRoom(props) {
                             </Show>
                             <div class="flex-1 min-w-0">
                               <p class="text-sm font-bold truncate">{team.name}</p>
-                              <div class="flex items-center gap-2 mt-0.5">
+                              <div class="flex items-center gap-2 mt-0.5 overflow-x-auto scrollbar-hide">
                                 {/* Budget */}
-                                <div class="flex items-center gap-1">
+                                <div class="flex items-center gap-1 flex-shrink-0">
                                   <svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                   </svg>
                                   <span class={`text-xs font-semibold ${getTeamBudgetColor(team.remainingBudget)}`}>₹{team.remainingBudget.toFixed(1)}</span>
                                 </div>
                                 
-                                <span class="text-gray-600">•</span>
+                                <span class="text-gray-600 flex-shrink-0">•</span>
                                 
                                 {/* Squad Count */}
-                                <div class="flex items-center gap-1">
+                                <div class="flex items-center gap-1 flex-shrink-0">
                                   <svg class="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                                   </svg>
                                   <span class={`text-xs font-semibold ${getTeamSquadColor(team.playersCount)}`}>{team.playersCount}/{liveState()?.playersLimit || 25}</span>
                                 </div>
                                 
-                                <span class="text-gray-600">•</span>
+                                <span class="text-gray-600 flex-shrink-0">•</span>
                                 
                                 {/* Overseas Count */}
-                                <div class="flex items-center gap-1">
+                                <div class="flex items-center gap-1 flex-shrink-0">
                                   <span class="text-xs">✈️</span>
                                   <span class={`text-xs font-semibold ${team.overseasCount >= (liveState()?.overseasLimit || 8) ? 'text-red-400' : 'text-orange-400'}`}>
                                     {team.overseasCount}/{liveState()?.overseasLimit || 8}
@@ -1322,23 +1303,6 @@ export default function AuctionRoom(props) {
                                 </div>
                               </div>
                             </div>
-                            
-                            {/* Refresh Icon */}
-                            <button 
-                              onClick={handleManualRefresh}
-                              class="w-7 h-7 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-all flex-shrink-0 ml-1"
-                              title="Refresh team players"
-                            >
-                              <svg 
-                                class={`w-3.5 h-3.5 transition-transform ${refreshing() ? 'animate-spin' : ''}`}
-                                fill="none" 
-                                stroke="currentColor" 
-                                stroke-width="2" 
-                                viewBox="0 0 24 24"
-                              >
-                                <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                              </svg>
-                            </button>
                             
                             {/* Expand/Collapse Icon */}
                             <button class="w-7 h-7 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-all flex-shrink-0">
@@ -1356,30 +1320,30 @@ export default function AuctionRoom(props) {
                           
                           {/* Players list - always track for reactivity, but only show when expanded */}
                           <div class={`mt-2 pt-2 border-t border-gray-800 space-y-1.5 ${expandedTeam() === team.shortName ? '' : 'hidden'}`}>
-                            <Show when={teamPlayers().filter(p => String(p.teamId) === teamIdStr).length === 0}>
+                            <Show when={(liveState()?.allPlayers || []).filter(p => String(p.teamId) === teamIdStr && p.status === 'sold').length === 0}>
                               <p class="text-xs text-gray-500 text-center py-2">No players yet</p>
                             </Show>
-                            <For each={teamPlayers().filter(p => String(p.teamId) === teamIdStr)}>
+                            <For each={(liveState()?.allPlayers || []).filter(p => String(p.teamId) === teamIdStr && p.status === 'sold')}>
                               {(player) => (
                                 <div class="flex items-center justify-between text-xs bg-gray-800/50 rounded-lg p-2">
                                   <div class="flex items-center gap-2 min-w-0 flex-1">
                                     <Show when={player.image} fallback={
                                       <div class="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
-                                            {player.name.split(' ').map(n => n[0]).join('')}
-                                          </div>
-                                        }>
-                                          <img src={player.image} alt={player.name} class="w-7 h-7 rounded-full object-cover flex-shrink-0" />
-                                        </Show>
-                                        <span class="font-medium truncate">{player.name}</span>
+                                        {player.name.split(' ').map(n => n[0]).join('')}
                                       </div>
-                                      <div class="flex items-center gap-2 flex-shrink-0">
-                                        <span class="text-gray-400 text-[10px]">{shortenRole(player.role)}</span>
-                                        <span class="text-emerald-400 font-semibold">₹{player.soldPrice?.toFixed(1) || player.basePrice?.toFixed(1)}Cr</span>
-                                      </div>
-                                    </div>
-                                  )}
-                                </For>
-                              </div>
+                                    }>
+                                      <img src={player.image} alt={player.name} class="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                                    </Show>
+                                    <span class="font-medium truncate">{player.name}</span>
+                                  </div>
+                                  <div class="flex items-center gap-2 flex-shrink-0">
+                                    <span class="text-gray-400 text-[10px]">{shortenRole(player.role)}</span>
+                                    <span class="text-emerald-400 font-semibold">₹{player.soldPrice?.toFixed(1) || player.basePrice?.toFixed(1)}Cr</span>
+                                  </div>
+                                </div>
+                              )}
+                            </For>
+                          </div>
                         </div>
                       );
                     }}

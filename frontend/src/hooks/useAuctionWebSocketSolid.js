@@ -126,6 +126,9 @@ export function useAuctionWebSocketSolid(auctionId) {
               
               if (update.allPlayers) {
                 allPlayers = update.allPlayers;
+                // Update auctionState with allPlayers so it persists in signal
+                setAuctionState((prev) => prev && ({ ...prev, allPlayers: update.allPlayers }));
+                
                 // Smart preloading: current player first (high priority), then next 4 players + team logos
                 if (update.currentPlayer) {
                   // CRITICAL: Preload current player image FIRST with high priority
