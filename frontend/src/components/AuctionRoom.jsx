@@ -1254,14 +1254,6 @@ export default function AuctionRoom(props) {
                     {(team) => {
                       const teamIdStr = String(team.id);
                       
-                      // Filter teamPlayers array to get only players for this team
-                      const teamPlayersList = createMemo(() => 
-                        teamPlayers().filter(p => {
-                          const pTeamId = String(p.teamId || '');
-                          return pTeamId === teamIdStr && pTeamId !== '';
-                        })
-                      );
-                      
                       return (
                         <div class="bg-gray-900 rounded-xl p-3 hover:bg-gray-800 transition-colors border border-gray-800">
                           <div 
@@ -1326,10 +1318,10 @@ export default function AuctionRoom(props) {
                           
                           {/* Players list - always track for reactivity, but only show when expanded */}
                           <div class={`mt-2 pt-2 border-t border-gray-800 space-y-1.5 ${expandedTeam() === team.shortName ? '' : 'hidden'}`}>
-                            <Show when={teamPlayersList().length === 0}>
+                            <Show when={teamPlayers().filter(p => String(p.teamId) === teamIdStr).length === 0}>
                               <p class="text-xs text-gray-500 text-center py-2">No players yet</p>
                             </Show>
-                            <For each={teamPlayersList()}>
+                            <For each={teamPlayers().filter(p => String(p.teamId) === teamIdStr)}>
                               {(player) => (
                                 <div class="flex items-center justify-between text-xs bg-gray-800/50 rounded-lg p-2">
                                   <div class="flex items-center gap-2 min-w-0 flex-1">
