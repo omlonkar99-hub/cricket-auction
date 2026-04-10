@@ -1321,34 +1321,32 @@ export default function AuctionRoom(props) {
                             </button>
                           </div>
                           
-                          {/* Show players when expanded */}
-                          <Show when={expandedTeam() === team.shortName}>
-                            <div class="mt-2 pt-2 border-t border-gray-800 space-y-1.5">
-                              <Show when={teamPlayersList().length === 0}>
-                                <p class="text-xs text-gray-500 text-center py-2">No players yet</p>
-                              </Show>
-                              <For each={teamPlayersList()}>
-                                {(player) => (
-                                  <div class="flex items-center justify-between text-xs bg-gray-800/50 rounded-lg p-2">
-                                    <div class="flex items-center gap-2 min-w-0 flex-1">
-                                      <Show when={player.image} fallback={
-                                        <div class="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
-                                              {player.name.split(' ').map(n => n[0]).join('')}
-                                            </div>
-                                          }>
-                                            <img src={player.image} alt={player.name} class="w-7 h-7 rounded-full object-cover flex-shrink-0" />
-                                          </Show>
-                                          <span class="font-medium truncate">{player.name}</span>
-                                        </div>
-                                        <div class="flex items-center gap-2 flex-shrink-0">
-                                          <span class="text-gray-400 text-[10px]">{shortenRole(player.role)}</span>
-                                          <span class="text-emerald-400 font-semibold">₹{player.soldPrice?.toFixed(1) || player.basePrice?.toFixed(1)}Cr</span>
-                                        </div>
+                          {/* Players list - always track for reactivity, but only show when expanded */}
+                          <div class={`mt-2 pt-2 border-t border-gray-800 space-y-1.5 ${expandedTeam() === team.shortName ? '' : 'hidden'}`}>
+                            <Show when={teamPlayersList().length === 0}>
+                              <p class="text-xs text-gray-500 text-center py-2">No players yet</p>
+                            </Show>
+                            <For each={teamPlayersList()}>
+                              {(player) => (
+                                <div class="flex items-center justify-between text-xs bg-gray-800/50 rounded-lg p-2">
+                                  <div class="flex items-center gap-2 min-w-0 flex-1">
+                                    <Show when={player.image} fallback={
+                                      <div class="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+                                            {player.name.split(' ').map(n => n[0]).join('')}
+                                          </div>
+                                        }>
+                                          <img src={player.image} alt={player.name} class="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                                        </Show>
+                                        <span class="font-medium truncate">{player.name}</span>
                                       </div>
-                                    )}
-                                  </For>
-                                </div>
-                          </Show>
+                                      <div class="flex items-center gap-2 flex-shrink-0">
+                                        <span class="text-gray-400 text-[10px]">{shortenRole(player.role)}</span>
+                                        <span class="text-emerald-400 font-semibold">₹{player.soldPrice?.toFixed(1) || player.basePrice?.toFixed(1)}Cr</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </For>
+                              </div>
                         </div>
                       );
                     }}
