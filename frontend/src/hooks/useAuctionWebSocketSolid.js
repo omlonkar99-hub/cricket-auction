@@ -285,33 +285,16 @@ export function useAuctionWebSocketSolid(auctionId) {
               
               // Use the soldPlayer from the update (includes full details)
               if (update.soldPlayer && update.soldPlayer.status === 'sold') {
-                // CRITICAL: Update allPlayers with NEW array reference for reactivity
-                setAuctionState((prev) => {
-                  if (!prev?.allPlayers) return prev;
-                  
-                  // Create completely new array with updated player
-                  const updatedPlayers = prev.allPlayers.map(p => 
-                    String(p.id) === String(update.soldPlayer.id) ? update.soldPlayer : p
-                  );
-                  
-                  // Return new state object with new allPlayers array
-                  return { 
-                    ...prev, 
-                    allPlayers: updatedPlayers,
-                    teams: update.teams || prev.teams // Also update teams here
-                  };
-                });
-                
-                // Also update the local allPlayers reference
+                // Update local allPlayers reference (for upcoming tab filtering)
                 const playerIndex = allPlayers.findIndex(p => String(p.id) === String(update.soldPlayer.id));
                 if (playerIndex !== -1) {
                   allPlayers[playerIndex] = update.soldPlayer;
                 }
                 
-                // Get teamId from soldPlayer or currentBidder (both should have it)
-                const teamId = String(update.soldPlayer.teamId || update.currentBidder?.id || '');
+                // Get teamId - MUST use currentBidder.id since that's the team that bought the player
+                const teamId = String(update.currentBidder?.id || update.soldPlayer.teamId || '');
                 
-                if (teamId) {
+                if (teamId && teamId !== '0' && teamId !== '') {
                   // Add to playersByTeam for team tab display - always create new object for reactivity
                   setPlayersByTeam((prev) => {
                     const teamPlayers = prev[teamId] || [];

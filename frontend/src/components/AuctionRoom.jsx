@@ -1250,10 +1250,17 @@ export default function AuctionRoom(props) {
               {/* Teams Section - CONSISTENT SIZING */}
               <Show when={activeTab() === 'teams'}>
                 <div class="space-y-2">
-                  <For each={auctionTeams()}>
+                  <Index each={auctionTeams()}>
                     {(team) => {
-                      // Memoize team players to track playersByTeam changes
-                      const teamPlayers = createMemo(() => playersByTeam()[String(team.id)] || []);
+                      const teamIdStr = String(team().id);
+                      
+                      // Watch playersByTeam changes and force re-render of this team item
+                      const [teamPlayersList, setTeamPlayersList] = createSignal([]);
+                      createEffect(() => {
+                        // This effect runs whenever playersByTeam changes
+                        const players = playersByTeam()[teamIdStr] || [];
+                        setTeamPlayersList(players);
+                      });
                       
                       return (
                         <div class="bg-gray-900 rounded-xl p-3 hover:bg-gray-800 transition-colors border border-gray-800">
@@ -1318,12 +1325,12 @@ export default function AuctionRoom(props) {
                           </div>
                           
                           {/* Show players when expanded */}
-                          <Show when={expandedTeam() === team.shortName}>
+                          <Show when={expandedTeam() === team().shortName}>
                             <div class="mt-2 pt-2 border-t border-gray-800 space-y-1.5">
-                              <Show when={teamPlayers().length === 0}>
+                              <Show when={teamPlayersList().length === 0}>
                                 <p class="text-xs text-gray-500 text-center py-2">No players yet</p>
                               </Show>
-                              <For each={teamPlayers()}>
+                              <For each={teamPlayersList()}>
                                 {(player) => (
                                   <div class="flex items-center justify-between text-xs bg-gray-800/50 rounded-lg p-2">
                                     <div class="flex items-center gap-2 min-w-0 flex-1">
@@ -1348,7 +1355,7 @@ export default function AuctionRoom(props) {
                         </div>
                       );
                     }}
-                  </For>
+                  </Index>
                 </div>
               </Show>
 
