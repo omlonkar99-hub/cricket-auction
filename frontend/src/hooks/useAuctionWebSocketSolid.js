@@ -285,6 +285,12 @@ export function useAuctionWebSocketSolid(auctionId) {
               
               // Use the soldPlayer from the update (includes full details)
               if (update.soldPlayer && update.soldPlayer.status === 'sold') {
+                // Update auctionState with new teams data
+                setAuctionState((prev) => prev && ({
+                  ...prev,
+                  teams: update.teams || prev.teams
+                }));
+                
                 // Update local allPlayers reference (for upcoming tab filtering)
                 const playerIndex = allPlayers.findIndex(p => String(p.id) === String(update.soldPlayer.id));
                 if (playerIndex !== -1) {

@@ -1254,9 +1254,12 @@ export default function AuctionRoom(props) {
                     {(team) => {
                       const teamIdStr = String(team.id);
                       
-                      // Create memo that filters teamPlayers - this makes For track changes
+                      // Filter teamPlayers array to get only players for this team
                       const teamPlayersList = createMemo(() => 
-                        teamPlayers().filter(p => String(p.teamId) === teamIdStr)
+                        teamPlayers().filter(p => {
+                          const pTeamId = String(p.teamId || '');
+                          return pTeamId === teamIdStr && pTeamId !== '';
+                        })
                       );
                       
                       return (
