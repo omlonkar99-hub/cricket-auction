@@ -9,7 +9,7 @@ export function useAuctionWebSocketSolid(auctionId) {
   const [bidHistory, setBidHistory] = createSignal([]); // Track all bids and events
   const [unsoldPlayers, setUnsoldPlayers] = createSignal([]); // Track unsold players
   const [soldPlayers, setSoldPlayers] = createSignal([]); // Track sold players
-  const [playersByTeam, setPlayersByTeam] = createSignal({}); // Track players by team ID for quick lookup
+  const [teamPlayers, setTeamPlayers] = createSignal([]); // Track sold players by team (array, not object)
   const [ping, setPing] = createSignal(0); // Real WebSocket latency
   let ws = null;
   let reconnectTimeout = null;
@@ -26,8 +26,8 @@ export function useAuctionWebSocketSolid(auctionId) {
     // Ensure ID is a string to avoid precision loss
     const auctionIdStr = String(currentAuctionId);
     
-    // Clear playersByTeam for this new auction (prevent old auction data from showing)
-    setPlayersByTeam({});
+    // Clear team players for this new auction (prevent old auction data from showing)
+    setTeamPlayers([]);
     setBidHistory([]);
     setSoldPlayers([]);
     setUnsoldPlayers([]);
@@ -116,9 +116,9 @@ export function useAuctionWebSocketSolid(auctionId) {
             case 'state':
               setAuctionState(update);
               
-              // Clear playersByTeam for new auction to prevent showing old data
+              // Clear team players for new auction to prevent showing old data
               if (update.type === 'initial_state') {
-                setPlayersByTeam({});
+                setTeamPlayers([]);
                 setBidHistory([]);
                 setSoldPlayers([]);
                 setUnsoldPlayers([]);
@@ -291,26 +291,15 @@ export function useAuctionWebSocketSolid(auctionId) {
                   allPlayers[playerIndex] = update.soldPlayer;
                 }
                 
-                // Get teamId - MUST use currentBidder.id since that's the team that bought the player
-                const teamId = String(update.currentBidder?.id || update.soldPlayer.teamId || '');
-                
-                if (teamId && teamId !== '0' && teamId !== '') {
-                  // Add to playersByTeam for team tab display - always create new object for reactivity
-                  setPlayersByTeam((prev) => {
-                    const teamPlayers = prev[teamId] || [];
-                    // Avoid duplicates
-                    const exists = teamPlayers.find(p => String(p.id) === String(update.soldPlayer.id));
-                    if (!exists) {
-                      // Create completely new object to trigger reactivity
-                      return {
-                        ...prev,
-                        [teamId]: [...teamPlayers, update.soldPlayer]
-                      };
-                    }
-                    // Even if duplicate, return new object to ensure reactivity
-                    return { ...prev };
-                  });
-                }
+                // Add to teamPlayers array - same pattern as bidHistory
+                setTeamPlayers((prev) => {
+                  // Avoid duplicates
+                  const exists = prev.find(p => String(p.id) === String(update.soldPlayer.id));
+                  if (!exists) {
+                    return [...prev, update.soldPlayer];
+                  }
+                  return prev;
+                });
                 
                 setSoldPlayers((prev) => [...prev, update.soldPlayer]);
               }
@@ -534,7 +523,7 @@ export function useAuctionWebSocketSolid(auctionId) {
     bidHistory, 
     unsoldPlayers, 
     soldPlayers, 
-    playersByTeam,
+    teamPlayers,
     ping,
     enterAuctionRoom,
     leaveAuctionRoom

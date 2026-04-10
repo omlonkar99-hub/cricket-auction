@@ -74,7 +74,7 @@ export default function AuctionRoom(props) {
     }
   };
 
-  const { auctionState: liveState, isConnected, placeBid: sendBid, getNextBidAmount, sendControl, lastMessageTime, bidHistory, unsoldPlayers, soldPlayers, playersByTeam, ping, enterAuctionRoom, leaveAuctionRoom } = useAuctionWebSocketSolid(auctionId);
+  const { auctionState: liveState, isConnected, placeBid: sendBid, getNextBidAmount, sendControl, lastMessageTime, bidHistory, unsoldPlayers, soldPlayers, teamPlayers, ping, enterAuctionRoom, leaveAuctionRoom } = useAuctionWebSocketSolid(auctionId);
 
   // Who is bidding: team-code user's team OR admin's chosen team (admin does not get team from login)
   const effectiveTeamId = () => {
@@ -1250,17 +1250,14 @@ export default function AuctionRoom(props) {
               {/* Teams Section - CONSISTENT SIZING */}
               <Show when={activeTab() === 'teams'}>
                 <div class="space-y-2">
-                  <Index each={auctionTeams()}>
+                  <For each={auctionTeams()}>
                     {(team) => {
-                      const teamIdStr = String(team().id);
+                      const teamIdStr = String(team.id);
                       
-                      // Watch playersByTeam changes and force re-render of this team item
-                      const [teamPlayersList, setTeamPlayersList] = createSignal([]);
-                      createEffect(() => {
-                        // This effect runs whenever playersByTeam changes
-                        const players = playersByTeam()[teamIdStr] || [];
-                        setTeamPlayersList(players);
-                      });
+                      // Create memo that filters teamPlayers - this makes For track changes
+                      const teamPlayersList = createMemo(() => 
+                        teamPlayers().filter(p => String(p.teamId) === teamIdStr)
+                      );
                       
                       return (
                         <div class="bg-gray-900 rounded-xl p-3 hover:bg-gray-800 transition-colors border border-gray-800">
@@ -1325,7 +1322,7 @@ export default function AuctionRoom(props) {
                           </div>
                           
                           {/* Show players when expanded */}
-                          <Show when={expandedTeam() === team().shortName}>
+                          <Show when={expandedTeam() === team.shortName}>
                             <div class="mt-2 pt-2 border-t border-gray-800 space-y-1.5">
                               <Show when={teamPlayersList().length === 0}>
                                 <p class="text-xs text-gray-500 text-center py-2">No players yet</p>
@@ -1355,7 +1352,7 @@ export default function AuctionRoom(props) {
                         </div>
                       );
                     }}
-                  </Index>
+                  </For>
                 </div>
               </Show>
 
