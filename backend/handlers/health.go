@@ -16,21 +16,9 @@ type AuctionHealth struct {
 	TotalPlayers  int     `json:"totalPlayers"`
 }
 
-// Simple health check for UptimeRobot
+// Simple health check for UptimeRobot - responds immediately without DB check
 func HealthCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
-	// Verify DB is reachable
-	if err := config.PingDB(); err != nil {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		json.NewEncoder(w).Encode(map[string]string{
-			"status":    "unhealthy",
-			"reason":    "database unreachable",
-			"timestamp": time.Now().Format(time.RFC3339),
-		})
-		return
-	}
-
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
 		"status":    "healthy",
