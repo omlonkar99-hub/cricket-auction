@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
-
-	"cricket-auction/config"
 )
 
 type AuctionHealth struct {
