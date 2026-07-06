@@ -70,7 +70,6 @@ type Auction struct {
 	TimerDuration         int                `json:"timerDuration" bson:"timerDuration"`
 	PlayersLimit          int                `json:"playersLimit" bson:"playersLimit"`
 	OverseasLimit         int                `json:"overseasLimit" bson:"overseasLimit"`
-	TradeWindowDuration   int                `json:"tradeWindowDuration" bson:"tradeWindowDuration"`
 	Status                string             `json:"status" bson:"status"`
 	IsLive                bool               `json:"isLive" bson:"isLive"`
 	CreatedAt             time.Time          `json:"createdAt" bson:"createdAt"`
@@ -467,8 +466,7 @@ func JoinAuction(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	var req struct {
 		DisplayName string `json:"displayName"`
-		TeamOption  string `json:"teamOption"` // "join_available" or "request_assign"
-		TeamID      string `json:"teamId"`     // Only for "join_available"
+		TeamID      string `json:"teamId"`
 	}
 	
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -484,31 +482,19 @@ func JoinAuction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Validate teamOption
-	if req.TeamOption != "join_available" && req.TeamOption != "request_assign" {
+	// Validate teamId is required
+	if req.TeamID == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "teamOption must be 'join_available' or 'request_assign'"})
+		json.NewEncoder(w).Encode(map[string]string{"error": "teamId is required"})
 		return
 	}
 	
-	// For join_available, teamId is required and must be valid
-	var teamID int64
-	if req.TeamOption == "join_available" {
-		if req.TeamID == "" {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{"error": "teamId is required for join_available option"})
-			return
-		}
-		id64, err := strconv.ParseInt(req.TeamID, 10, 64)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{"error": "Invalid teamId format"})
-			return
-		}
-		teamID = id64
-	} else {
-		// For request_assign, teamId is not used
-		teamID = 0
+	// Parse teamId
+	teamID, err := strconv.ParseInt(req.TeamID, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid teamId format"})
+		return
 	}
 	
 	// Find auction
@@ -548,15 +534,7 @@ func JoinAuction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Determine status based on teamOption
-	var status string
-	if req.TeamOption == "join_available" {
-		status = "joined"
-	} else {
-		status = "pending_assign"
-	}
-	
-	// Create participant
+	// Create participant - status is always "joined" since teamId is required
 	now := time.Now()
 	participant := Participant{
 		ID:          newID(),
@@ -564,7 +542,7 @@ func JoinAuction(w http.ResponseWriter, r *http.Request) {
 		UUID:        uuid,
 		DisplayName: req.DisplayName,
 		TeamID:      teamID,
-		Status:      status,
+		Status:      "joined",
 		JoinedAt:    now,
 		RemovedAt:   nil,
 	}
@@ -579,10 +557,10 @@ func JoinAuction(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	
-	_, err := config.GetCollection("participants").InsertOne(ctx, participant)
-	if err != nil {
+	_, insertErr := config.GetCollection("participants").InsertOne(ctx, participant)
+	if insertErr != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to join auction: " + err.Error()})
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to join auction: " + insertErr.Error()})
 		return
 	}
 	
@@ -828,7 +806,7 @@ func CreateAuction(w http.ResponseWriter, r *http.Request) {
 		SquadSize           int                  `json:"squadSize"`
 		OverseasLimit       int                  `json:"overseasLimit"`
 		TimerDuration       int                  `json:"timerDuration"`
-		TradeWindowDuration int                  `json:"tradeWindowDuration"`
+
 		SelectedTeams       []string             `json:"selectedTeams"`       // Accept as strings
 		SelectedPlayers     []string             `json:"selectedPlayers"`     // Accept as strings
 		RoleOrder           []string             `json:"roleOrder"`
@@ -886,10 +864,6 @@ func CreateAuction(w http.ResponseWriter, r *http.Request) {
 	if timerDuration == 0 {
 		timerDuration = 10 // Default 10 seconds
 	}
-	tradeWindowDuration := req.TradeWindowDuration
-	if tradeWindowDuration == 0 {
-		tradeWindowDuration = 24 // Default 24 hours
-	}
 
 	auction := Auction{
 		ID:                  newID(),
@@ -904,7 +878,6 @@ func CreateAuction(w http.ResponseWriter, r *http.Request) {
 		RoleOrder:           req.RoleOrder,
 		PlayerOrder:         playerOrder,     // Use converted IDs
 		TimerDuration:       timerDuration,
-		TradeWindowDuration: tradeWindowDuration,
 		Status:              "upcoming",
 		IsLive:              false,
 		CreatedAt:           time.Now(),
@@ -1273,7 +1246,7 @@ func UpdateAuction(w http.ResponseWriter, r *http.Request) {
 		SquadSize           int                `json:"squadSize"`
 		OverseasLimit       int                `json:"overseasLimit"`
 		TimerDuration       int                `json:"timerDuration"`
-		TradeWindowDuration int                `json:"tradeWindowDuration"`
+
 		SelectedTeams       []int64            `json:"selectedTeams"`
 		SelectedPlayers     []int64            `json:"selectedPlayers"`
 		RoleOrder           []string           `json:"roleOrder"`
@@ -1320,7 +1293,7 @@ func UpdateAuction(w http.ResponseWriter, r *http.Request) {
 			auctions[i].PlayersLimit = req.SquadSize
 			auctions[i].OverseasLimit = req.OverseasLimit
 			auctions[i].TimerDuration = req.TimerDuration
-			auctions[i].TradeWindowDuration = req.TradeWindowDuration
+
 			auctions[i].SelectedTeams = req.SelectedTeams
 			auctions[i].SelectedPlayers = req.SelectedPlayers
 			auctions[i].RoleOrder = req.RoleOrder
@@ -1367,7 +1340,7 @@ func UpdateAuction(w http.ResponseWriter, r *http.Request) {
 			existing.PlayersLimit = req.SquadSize
 			existing.OverseasLimit = req.OverseasLimit
 			existing.TimerDuration = req.TimerDuration
-			existing.TradeWindowDuration = req.TradeWindowDuration
+
 			existing.SelectedTeams = req.SelectedTeams
 			existing.SelectedPlayers = req.SelectedPlayers
 			existing.RoleOrder = req.RoleOrder
@@ -1533,7 +1506,7 @@ func DuplicateAuction(w http.ResponseWriter, r *http.Request) {
 		TimerDuration:       original.TimerDuration,
 		PlayersLimit:        original.PlayersLimit,
 		OverseasLimit:       original.OverseasLimit,
-		TradeWindowDuration: original.TradeWindowDuration,
+
 		Status:              "upcoming",
 		IsLive:              false,
 		CreatedAt:           time.Now(),
@@ -1603,7 +1576,7 @@ func CreateRetentionPhase(w http.ResponseWriter, r *http.Request) {
 		TimerDuration:       original.TimerDuration,
 		PlayersLimit:        req.MaxRetentions,
 		OverseasLimit:       original.OverseasLimit,
-		TradeWindowDuration: original.TradeWindowDuration,
+
 		Status:              "upcoming",
 		IsLive:              false,
 		CreatedAt:           time.Now(),

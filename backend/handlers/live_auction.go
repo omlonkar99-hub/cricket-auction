@@ -27,7 +27,7 @@ type LiveAuction struct {
 	MinBidIncrement     float64
 	PlayersLimit        int
 	OverseasLimit       int
-	TradeWindowDuration int
+
 
 	// Live state (in-memory only)
 	CurrentPlayerIndex int
@@ -221,7 +221,7 @@ func StartLiveAuction(auctionID int64, auction Auction) {
 		MinBidIncrement:     0.25, // Minimum increment (allows 0.25, 0.50, 1.00 bids)
 		PlayersLimit:        auction.PlayersLimit,
 		OverseasLimit:       auction.OverseasLimit,
-		TradeWindowDuration: auction.TradeWindowDuration,
+
 
 		CurrentPlayerIndex: 0,
 		Timer:              auction.TimerDuration, // Keep in seconds
