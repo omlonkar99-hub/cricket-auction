@@ -19,6 +19,9 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
 		// Allow your specific domains
+		if origin == "https://cricket-auction-z0bl.onrender.com" {
+			return true
+		}
 		if origin == "https://cricketive-auction.onrender.com" {
 			return true
 		}
