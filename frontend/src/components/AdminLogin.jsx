@@ -113,13 +113,6 @@ export default function AdminLogin(props) {
               </Show>
             </button>
           </form>
-
-          {/* Info Message */}
-          <div class="mt-6 pt-6 border-t border-gray-800">
-            <p class="text-xs text-gray-400 text-center">
-              For superadmin access only. Default credentials are in the .env file.
-            </p>
-          </div>
         </div>
 
         {/* Back Link */}
