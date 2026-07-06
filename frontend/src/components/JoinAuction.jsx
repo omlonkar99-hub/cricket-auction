@@ -81,7 +81,7 @@ export default function JoinAuction(props) {
 
       const body = {
         displayName: displayName().trim(),
-        teamId: selectedTeamId()
+        teamId: String(selectedTeamId())
       };
 
       let url = `/api/auctions/${props.auctionId}/join`;

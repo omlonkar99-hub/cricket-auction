@@ -124,6 +124,7 @@ function App() {
         ...auctionData,
         id: auctionData.id != null ? String(auctionData.id) : auctionData.id
       });
+      window.history.pushState({}, '', `/auction/${auctionData.id}`);
     }
     if (page === 'joinAuction' && auctionData) {
       setSelectedAuction({
@@ -188,6 +189,13 @@ function App() {
           <CreateAuction
             onNavigate={handleNavigate}
             onBack={() => setCurrentPage('home')}
+          />
+        </Match>
+        
+        <Match when={currentPage() === 'auction' && selectedAuction()}>
+          <AuctionContainer
+            auctionId={selectedAuction().id}
+            onBack={() => setCurrentPage('auctionBrowser')}
           />
         </Match>
         
