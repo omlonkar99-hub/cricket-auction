@@ -176,10 +176,12 @@ func corsMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Device-UUID")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		
-		// Allow your specific domains
-		if origin == "https://cricketive-auction.onrender.com" {
+		// Allow all localhost origins (for development)
+		if strings.HasPrefix(origin, "http://localhost:") {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
-		} else if origin == "http://localhost:3000" {
+		} else if strings.HasPrefix(origin, "http://127.0.0.1:") {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		} else if origin == "https://cricketive-auction.onrender.com" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		} else if strings.HasSuffix(origin, ".onrender.com") {
 			// Allow any Render deployment

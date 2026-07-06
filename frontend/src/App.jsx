@@ -9,6 +9,7 @@ import DashboardHome from './components/DashboardHome';
 import AuctionContainer from './components/AuctionContainer';
 import CreateAuction from './components/CreateAuction';
 import JoinAuction from './components/JoinAuction';
+import UsernamePrompt from './components/UsernamePrompt';
 
 function App() {
   const [currentPage, setCurrentPage] = createSignal('home');
@@ -144,6 +145,8 @@ function App() {
 
   return (
     <>
+      <UsernamePrompt />
+      
       <Show when={showLogin()}>
         <Login 
           onLogin={handleLogin} 

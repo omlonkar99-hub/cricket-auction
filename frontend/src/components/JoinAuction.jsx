@@ -5,8 +5,10 @@ export default function JoinAuction(props) {
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal(null);
   const [auctionData, setAuctionData] = createSignal(null);
-  const [displayName, setDisplayName] = createSignal('');
-  const [teamOption, setTeamOption] = createSignal('join_available');
+  const [displayName, setDisplayName] = createSignal(
+    localStorage.getItem('userDisplayName') || ''
+  );
+  const [showNameEdit, setShowNameEdit] = createSignal(false);
   const [selectedTeamId, setSelectedTeamId] = createSignal(null);
   const [accessCode, setAccessCode] = createSignal('');
   const [showAccessCodeField, setShowAccessCodeField] = createSignal(false);
@@ -63,7 +65,7 @@ export default function JoinAuction(props) {
       return;
     }
 
-    if (teamOption() === 'join_available' && !selectedTeamId()) {
+    if (!selectedTeamId()) {
       setError('Please select a team');
       return;
     }
@@ -79,12 +81,8 @@ export default function JoinAuction(props) {
 
       const body = {
         displayName: displayName().trim(),
-        teamOption: teamOption()
+        teamId: selectedTeamId()
       };
-
-      if (teamOption() === 'join_available' && selectedTeamId()) {
-        body.teamId = selectedTeamId();
-      }
 
       let url = `/api/auctions/${props.auctionId}/join`;
       if (showAccessCodeField() && accessCode().trim()) {
@@ -107,6 +105,7 @@ export default function JoinAuction(props) {
 
       // Success - store display name for this auction
       localStorage.setItem(`auction_${props.auctionId}_displayName`, displayName().trim());
+      localStorage.setItem('userDisplayName', displayName().trim());
       setSuccess(true);
 
       // Redirect after short delay
@@ -259,103 +258,62 @@ export default function JoinAuction(props) {
 
                 {/* Display Name */}
                 <div>
-                  <label class="block text-sm font-semibold text-gray-300 mb-2">
-                    Your Display Name
-                  </label>
-                  <p class="text-xs text-gray-400 mb-2">
-                    This is how other participants will see you in the auction. You can use any name.
-                  </p>
-                  <input
-                    type="text"
-                    placeholder="e.g., Player_123, Team Manager, etc."
-                    value={displayName()}
-                    onInput={(e) => setDisplayName(e.currentTarget.value)}
-                    maxLength="50"
-                    class="w-full px-4 py-2.5 bg-[#1a1a1a] border border-gray-800 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
-                    disabled={submitting()}
-                  />
-                  <p class="text-xs text-gray-500 mt-1">{displayName().length}/50</p>
+                  <div class="flex items-center justify-between mb-3">
+                    <label class="block text-sm font-semibold text-gray-300">
+                      Your Display Name
+                    </label>
+                    <button
+                      onClick={() => setShowNameEdit(!showNameEdit())}
+                      class="text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                    >
+                      {showNameEdit() ? 'Done' : 'Change'}
+                    </button>
+                  </div>
+
+                  <Show when={showNameEdit()} fallback={
+                    <div class="px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-lg text-white text-sm">
+                      {displayName()}
+                    </div>
+                  }>
+                    <input
+                      type="text"
+                      value={displayName()}
+                      onInput={(e) => setDisplayName(e.currentTarget.value)}
+                      maxLength="50"
+                      class="w-full px-4 py-2.5 bg-[#1a1a1a] border border-gray-800 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+                      disabled={submitting()}
+                    />
+                    <p class="text-xs text-gray-500 mt-1">{displayName().length}/50</p>
+                  </Show>
                 </div>
 
                 {/* Team Selection */}
                 <div>
                   <label class="block text-sm font-semibold text-gray-300 mb-3">
-                    Team Selection
+                    Select Your Team
                   </label>
 
-                  {/* Option 1: Join Available Team */}
-                  <div class="space-y-3">
-                    <label class="flex items-start gap-3 cursor-pointer p-3 rounded-lg border-2 transition-colors" classList={{
-                      'border-purple-500 bg-purple-500/5': teamOption() === 'join_available',
-                      'border-gray-700 bg-[#1a1a1a] hover:border-gray-600': teamOption() !== 'join_available'
-                    }}>
-                      <input
-                        type="radio"
-                        name="teamOption"
-                        value="join_available"
-                        checked={teamOption() === 'join_available'}
-                        onChange={() => setTeamOption('join_available')}
-                        class="mt-1"
-                        disabled={submitting()}
-                      />
-                      <div class="flex-1">
-                        <p class="font-semibold text-sm text-gray-200">Join Available Team</p>
-                        <p class="text-xs text-gray-400 mt-1">
-                          Select a team with available slots and start bidding immediately.
-                        </p>
-                      </div>
-                    </label>
-
-                    {/* Team Dropdown */}
-                    <Show when={teamOption() === 'join_available'}>
-                      <div class="ml-6 space-y-2">
-                        <p class="text-xs text-gray-400 font-medium">SELECT TEAM:</p>
-                        <Show when={availableTeams().length > 0} fallback={
-                          <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-2">
-                            <p class="text-xs text-yellow-400">No teams available to join</p>
-                          </div>
-                        }>
-                          <select
-                            value={selectedTeamId() || ''}
-                            onChange={(e) => setSelectedTeamId(Number(e.currentTarget.value))}
-                            class="w-full px-3 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500 transition-colors"
-                            disabled={submitting()}
-                          >
-                            <option value="">-- Select a team --</option>
-                            <For each={availableTeams()}>
-                              {(team) => (
-                                <option value={team.id}>
-                                  {team.name} ({team.shortName})
-                                </option>
-                              )}
-                            </For>
-                          </select>
-                        </Show>
-                      </div>
-                    </Show>
-                  </div>
-
-                  {/* Option 2: Request Assignment */}
-                  <label class="flex items-start gap-3 cursor-pointer p-3 rounded-lg border-2 transition-colors mt-3" classList={{
-                    'border-purple-500 bg-purple-500/5': teamOption() === 'request_assign',
-                    'border-gray-700 bg-[#1a1a1a] hover:border-gray-600': teamOption() !== 'request_assign'
-                  }}>
-                    <input
-                      type="radio"
-                      name="teamOption"
-                      value="request_assign"
-                      checked={teamOption() === 'request_assign'}
-                      onChange={() => setTeamOption('request_assign')}
-                      class="mt-1"
-                      disabled={submitting()}
-                    />
-                    <div class="flex-1">
-                      <p class="font-semibold text-sm text-gray-200">Request Team Assignment</p>
-                      <p class="text-xs text-gray-400 mt-1">
-                        Let the auction creator assign a team to you. You'll join once assigned.
-                      </p>
+                  <Show when={availableTeams().length > 0} fallback={
+                    <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+                      <p class="text-xs text-yellow-400">No teams available to join</p>
                     </div>
-                  </label>
+                  }>
+                    <select
+                      value={selectedTeamId() || ''}
+                      onChange={(e) => setSelectedTeamId(Number(e.currentTarget.value))}
+                      class="w-full px-4 py-2.5 bg-[#1a1a1a] border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500 transition-colors"
+                      disabled={submitting()}
+                    >
+                      <option value="">-- Select a team --</option>
+                      <For each={availableTeams()}>
+                        {(team) => (
+                          <option value={team.id}>
+                            {team.name} ({team.shortName})
+                          </option>
+                        )}
+                      </For>
+                    </select>
+                  </Show>
                 </div>
 
                 {/* Team Info Cards */}

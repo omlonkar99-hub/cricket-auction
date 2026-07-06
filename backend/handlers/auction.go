@@ -412,18 +412,6 @@ func CreateAuctionNoAuth(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:       now,
 	}
 	
-	// Create participant for creator with status "pending_assign"
-	participant := Participant{
-		ID:          newID(),
-		AuctionID:   auction.ID,
-		UUID:        uuid,
-		DisplayName: uuid, // Default display name is UUID
-		TeamID:      0,    // Not yet assigned
-		Status:      "pending_assign",
-		JoinedAt:    now,
-		RemovedAt:   nil,
-	}
-	
 	// Save to database
 	if config.DB == nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -444,25 +432,13 @@ func CreateAuctionNoAuth(w http.ResponseWriter, r *http.Request) {
 	
 	log.Printf("[CreateAuctionNoAuth] Inserted auction with ID: %v", auctionResult.InsertedID)
 	
-	// Insert participant
-	participantResult, err := config.GetCollection("participants").InsertOne(ctx, participant)
-	if err != nil {
-		// Auction was created but participant failed - this is a partial failure
-		log.Printf("[ERROR] Failed to create participant: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to add creator as participant: " + err.Error()})
-		return
-	}
-	
-	log.Printf("[CreateAuctionNoAuth] Inserted participant with ID: %v", participantResult.InsertedID)
-	
 	// Add to in-memory cache
 	auctions = append(auctions, auction)
 	
 	// Populate transient fields for response
 	auction.Teams = getTeamsByIDs(selectedTeams)
 	auction.Players = getPlayersByIDs(selectedPlayers)
-	auction.Participants = []Participant{participant}
+	auction.Participants = []Participant{}
 	
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(auction)
