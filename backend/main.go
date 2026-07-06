@@ -163,7 +163,7 @@ func main() {
 	}
 
 	log.Printf("[SERVER] Backend server starting on port %s", port)
-	log.Printf("[SERVER] Configured for long-running WebSocket connections")
+	log.Printf("[SERVER] Configured for long-running WebSocket connections with CORS support")
 	log.Fatal(srv.ListenAndServe())
 }
 
