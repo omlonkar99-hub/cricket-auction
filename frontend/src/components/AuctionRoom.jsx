@@ -81,14 +81,12 @@ export default function AuctionRoom(props) {
     const regularTeamId = teamId();
     const adminTeamId = isAdmin() ? adminPlayingAsTeamId() : null;
     
-    // For regular team users, return their team ID as-is
-    if (regularTeamId) return regularTeamId;
+    // For regular team users, return their team ID (should be string)
+    if (regularTeamId) return String(regularTeamId);
     
-    // For admin, convert string back to number if needed for WebSocket compatibility
+    // For admin, return the selected team ID as string
     if (adminTeamId) {
-      // Try to convert to number if it looks like a number, otherwise keep as string
-      const numericId = Number(adminTeamId);
-      return !isNaN(numericId) ? numericId : adminTeamId;
+      return String(adminTeamId);
     }
     
     return null;

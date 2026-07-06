@@ -52,8 +52,8 @@ function App() {
     if (token && username && role) {
       const user = { username, role, token };
       if (role === 'team' && teamIdRaw != null && teamIdRaw !== '') {
-        const teamId = Number(teamIdRaw);
-        if (!Number.isNaN(teamId)) user.teamId = teamId;
+        // Keep teamId as string to handle large int64 values (MongoDB ObjectIds)
+        user.teamId = String(teamIdRaw);
       }
       setCurrentUser(user);
       setIsAuthenticated(true);
