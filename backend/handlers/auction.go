@@ -527,8 +527,9 @@ func JoinAuction(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	
-	// Check if UUID already participant
-	if IsParticipantInAuction(id, uuid) {
+	// Check if UUID already participant (but allow creator to join even if already a participant)
+	isCreator := auction.CreatorUUID == uuid
+	if IsParticipantInAuction(id, uuid) && !isCreator {
 		w.WriteHeader(http.StatusConflict)
 		json.NewEncoder(w).Encode(map[string]string{"error": "User already joined this auction"})
 		return
@@ -556,6 +557,16 @@ func JoinAuction(w http.ResponseWriter, r *http.Request) {
 	
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	
+	// If creator is already a participant, just return the existing one
+	if isCreator {
+		existing := GetParticipant(id, uuid)
+		if existing != nil {
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(existing)
+			return
+		}
+	}
 	
 	_, insertErr := config.GetCollection("participants").InsertOne(ctx, participant)
 	if insertErr != nil {
