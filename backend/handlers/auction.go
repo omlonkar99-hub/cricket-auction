@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"time"
@@ -41,10 +42,25 @@ type Player struct {
 	CreatedAt  time.Time `json:"createdAt" bson:"createdAt"`
 }
 
+type Participant struct {
+	ID        int64     `json:"id,string" bson:"_id"`
+	AuctionID int64     `json:"auctionId,string" bson:"auctionId"`
+	UUID      string    `json:"uuid" bson:"uuid"`
+	DisplayName string  `json:"displayName" bson:"displayName"`
+	TeamID    int64     `json:"teamId,string" bson:"teamId"`
+	Status    string    `json:"status" bson:"status"`
+	JoinedAt  time.Time `json:"joinedAt" bson:"joinedAt"`
+	RemovedAt *time.Time `json:"removedAt,omitempty" bson:"removedAt,omitempty"`
+}
+
 type Auction struct {
 	ID                    int64              `json:"id,string" bson:"_id"`
 	Name                  string             `json:"name" bson:"name"`
 	Description           string             `json:"description" bson:"description"`
+	CreatorUUID           string             `json:"creatorUUID" bson:"creatorUUID"`
+	CreatorName           string             `json:"creatorName" bson:"creatorName"`
+	Visibility            string             `json:"visibility" bson:"visibility"`
+	AccessCode            string             `json:"accessCode" bson:"accessCode"`
 	Type                  string             `json:"type" bson:"type"`
 	SelectedTeams         []int64            `json:"selectedTeams" bson:"selectedTeams"`       // IDs only
 	SelectedPlayers       []int64            `json:"selectedPlayers" bson:"selectedPlayers"`   // IDs only
@@ -58,8 +74,10 @@ type Auction struct {
 	Status                string             `json:"status" bson:"status"`
 	IsLive                bool               `json:"isLive" bson:"isLive"`
 	CreatedAt             time.Time          `json:"createdAt" bson:"createdAt"`
+	UpdatedAt             time.Time          `json:"updatedAt" bson:"updatedAt"`
 	
 	// Transient fields (not stored in DB, populated on read)
+	Participants          []Participant      `json:"participants,omitempty" bson:"-"`
 	Teams                 []Team             `json:"teams,omitempty" bson:"-"`
 	Players               []Player           `json:"players,omitempty" bson:"-"`
 }
@@ -295,6 +313,536 @@ func CleanupOldDraftAuctions() {
 	}
 }
 
+// generateAccessCode generates a random 5-character access code (uppercase letters + numbers)
+func generateAccessCode() string {
+	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	code := make([]byte, 5)
+	for i := range code {
+		code[i] = charset[rand.Intn(len(charset))]
+	}
+	return string(code)
+}
+
+// CreateAuctionNoAuth creates a new auction without authentication
+func CreateAuctionNoAuth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	
+	// Extract UUID from header
+	uuid := r.Header.Get("X-Device-UUID")
+	if uuid == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "X-Device-UUID header required"})
+		return
+	}
+	
+	var req struct {
+		Name            string   `json:"name"`
+		Description     string   `json:"description"`
+		Visibility      string   `json:"visibility"` // "public" or "private"
+		SelectedTeams   []string `json:"selectedTeams"`
+		SelectedPlayers []string `json:"selectedPlayers"`
+		Budget          int      `json:"budget"`
+		TimerDuration   int      `json:"timerDuration"`
+		PlayersLimit    int      `json:"playersLimit"`
+		OverseasLimit   int      `json:"overseasLimit"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid JSON: " + err.Error()})
+		return
+	}
+	
+	// Validate visibility
+	if req.Visibility != "public" && req.Visibility != "private" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Visibility must be 'public' or 'private'"})
+		return
+	}
+	
+	// Convert string IDs to int64
+	selectedTeams := make([]int64, len(req.SelectedTeams))
+	for i, idStr := range req.SelectedTeams {
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Invalid team ID: " + idStr})
+			return
+		}
+		selectedTeams[i] = id
+	}
+	
+	selectedPlayers := make([]int64, len(req.SelectedPlayers))
+	for i, idStr := range req.SelectedPlayers {
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Invalid player ID: " + idStr})
+			return
+		}
+		selectedPlayers[i] = id
+	}
+	
+	// Generate access code for private auctions
+	var accessCode string
+	if req.Visibility == "private" {
+		accessCode = generateAccessCode()
+	}
+	
+	now := time.Now()
+	
+	// Create auction
+	auction := Auction{
+		ID:              newID(),
+		Name:            req.Name,
+		Description:     req.Description,
+		CreatorUUID:     uuid,
+		CreatorName:     uuid, // Will be updated by user later, using UUID as default
+		Visibility:      req.Visibility,
+		AccessCode:      accessCode,
+		SelectedTeams:   selectedTeams,
+		SelectedPlayers: selectedPlayers,
+		Budget:          req.Budget,
+		TimerDuration:   req.TimerDuration,
+		PlayersLimit:    req.PlayersLimit,
+		OverseasLimit:   req.OverseasLimit,
+		Status:          "draft",
+		IsLive:          false,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+	
+	// Create participant for creator with status "pending_assign"
+	participant := Participant{
+		ID:          newID(),
+		AuctionID:   auction.ID,
+		UUID:        uuid,
+		DisplayName: uuid, // Default display name is UUID
+		TeamID:      0,    // Not yet assigned
+		Status:      "pending_assign",
+		JoinedAt:    now,
+		RemovedAt:   nil,
+	}
+	
+	// Save to database
+	if config.DB == nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Database not connected"})
+		return
+	}
+	
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	// Insert auction first
+	auctionResult, err := config.GetCollection("auctions").InsertOne(ctx, auction)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create auction: " + err.Error()})
+		return
+	}
+	
+	log.Printf("[CreateAuctionNoAuth] Inserted auction with ID: %v", auctionResult.InsertedID)
+	
+	// Insert participant
+	participantResult, err := config.GetCollection("participants").InsertOne(ctx, participant)
+	if err != nil {
+		// Auction was created but participant failed - this is a partial failure
+		log.Printf("[ERROR] Failed to create participant: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to add creator as participant: " + err.Error()})
+		return
+	}
+	
+	log.Printf("[CreateAuctionNoAuth] Inserted participant with ID: %v", participantResult.InsertedID)
+	
+	// Add to in-memory cache
+	auctions = append(auctions, auction)
+	
+	// Populate transient fields for response
+	auction.Teams = getTeamsByIDs(selectedTeams)
+	auction.Players = getPlayersByIDs(selectedPlayers)
+	auction.Participants = []Participant{participant}
+	
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(auction)
+}
+
+// JoinAuction allows a user to join an auction
+func JoinAuction(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	
+	// Extract UUID from header
+	uuid := r.Header.Get("X-Device-UUID")
+	if uuid == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "X-Device-UUID header required"})
+		return
+	}
+	
+	// Get auction ID from URL
+	id, ok := getAuctionID(r)
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid auction ID"})
+		return
+	}
+	
+	// Parse request body
+	var req struct {
+		DisplayName string `json:"displayName"`
+		TeamOption  string `json:"teamOption"` // "join_available" or "request_assign"
+		TeamID      string `json:"teamId"`     // Only for "join_available"
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid JSON: " + err.Error()})
+		return
+	}
+	
+	// Validate displayName
+	if req.DisplayName == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "displayName is required"})
+		return
+	}
+	
+	// Validate teamOption
+	if req.TeamOption != "join_available" && req.TeamOption != "request_assign" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "teamOption must be 'join_available' or 'request_assign'"})
+		return
+	}
+	
+	// For join_available, teamId is required and must be valid
+	var teamID int64
+	if req.TeamOption == "join_available" {
+		if req.TeamID == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "teamId is required for join_available option"})
+			return
+		}
+		id64, err := strconv.ParseInt(req.TeamID, 10, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Invalid teamId format"})
+			return
+		}
+		teamID = id64
+	} else {
+		// For request_assign, teamId is not used
+		teamID = 0
+	}
+	
+	// Find auction
+	auction := getAuctionByID(id)
+	if auction == nil {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Auction not found"})
+		return
+	}
+	
+	// Validate auction status is "draft" or "upcoming"
+	if auction.Status != "draft" && auction.Status != "upcoming" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Auction status must be 'draft' or 'upcoming'"})
+		return
+	}
+	
+	// For private auctions, validate access-code query parameter
+	if auction.Visibility == "private" {
+		accessCode := r.URL.Query().Get("access-code")
+		if accessCode == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "access-code query parameter required for private auctions"})
+			return
+		}
+		if accessCode != auction.AccessCode {
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Invalid access code"})
+			return
+		}
+	}
+	
+	// Check if UUID already participant
+	if IsParticipantInAuction(id, uuid) {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "User already joined this auction"})
+		return
+	}
+	
+	// Determine status based on teamOption
+	var status string
+	if req.TeamOption == "join_available" {
+		status = "joined"
+	} else {
+		status = "pending_assign"
+	}
+	
+	// Create participant
+	now := time.Now()
+	participant := Participant{
+		ID:          newID(),
+		AuctionID:   id,
+		UUID:        uuid,
+		DisplayName: req.DisplayName,
+		TeamID:      teamID,
+		Status:      status,
+		JoinedAt:    now,
+		RemovedAt:   nil,
+	}
+	
+	// Save to database
+	if config.DB == nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Database not connected"})
+		return
+	}
+	
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	_, err := config.GetCollection("participants").InsertOne(ctx, participant)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to join auction: " + err.Error()})
+		return
+	}
+	
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(participant)
+}
+
+func RemoveParticipant(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	
+	// Extract UUID from header (must be auction creator)
+	creatorUUID := r.Header.Get("X-Device-UUID")
+	if creatorUUID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "X-Device-UUID header required"})
+		return
+	}
+	
+	// Get auction ID from URL
+	id, ok := getAuctionID(r)
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid auction ID"})
+		return
+	}
+	
+	// Parse request body
+	var req struct {
+		ParticipantUUID string `json:"participantUUID"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid JSON: " + err.Error()})
+		return
+	}
+	
+	// Validate participantUUID is provided
+	if req.ParticipantUUID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "participantUUID is required"})
+		return
+	}
+	
+	// Prevent self-removal
+	if creatorUUID == req.ParticipantUUID {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Cannot remove yourself"})
+		return
+	}
+	
+	// Find auction
+	auction := getAuctionByID(id)
+	if auction == nil {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Auction not found"})
+		return
+	}
+	
+	// Verify requestor is auction creator
+	if auction.CreatorUUID != creatorUUID {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Only auction creator can remove participants"})
+		return
+	}
+	
+	// Verify participant exists
+	participant := GetParticipant(id, req.ParticipantUUID)
+	if participant == nil {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Participant not found"})
+		return
+	}
+	
+	// Check if database is connected
+	if config.DB == nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Database not connected"})
+		return
+	}
+	
+	// Update participant status to "removed" with removedAt timestamp
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	now := time.Now()
+	_, err := config.GetCollection("participants").UpdateOne(ctx,
+		bson.M{
+			"auctionId": id,
+			"uuid":      req.ParticipantUUID,
+		},
+		bson.M{
+			"$set": bson.M{
+				"status":    "removed",
+				"removedAt": now,
+			},
+		},
+	)
+	
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to remove participant: " + err.Error()})
+		return
+	}
+	
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"success": "Participant removed successfully"})
+}
+
+func AssignTeam(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	
+	// Extract UUID from header (must be auction creator)
+	creatorUUID := r.Header.Get("X-Device-UUID")
+	if creatorUUID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "X-Device-UUID header required"})
+		return
+	}
+	
+	// Get auction ID from URL
+	id, ok := getAuctionID(r)
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid auction ID"})
+		return
+	}
+	
+	// Parse request body
+	var req struct {
+		ParticipantUUID string `json:"participantUUID"`
+		TeamId          string `json:"teamId"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid JSON: " + err.Error()})
+		return
+	}
+	
+	// Validate participantUUID is provided
+	if req.ParticipantUUID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "participantUUID is required"})
+		return
+	}
+	
+	// Validate teamId is provided and convert to int64
+	if req.TeamId == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "teamId is required"})
+		return
+	}
+	
+	teamID, err := strconv.ParseInt(req.TeamId, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid teamId format"})
+		return
+	}
+	
+	// Find auction
+	auction := getAuctionByID(id)
+	if auction == nil {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Auction not found"})
+		return
+	}
+	
+	// Verify requestor is auction creator
+	if auction.CreatorUUID != creatorUUID {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Only auction creator can assign teams"})
+		return
+	}
+	
+	// Validate team exists in auction's selectedTeams
+	teamExists := false
+	for _, t := range auction.SelectedTeams {
+		if t == teamID {
+			teamExists = true
+			break
+		}
+	}
+	if !teamExists {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Team not found in auction"})
+		return
+	}
+	
+	// Get participant
+	participant := GetParticipant(id, req.ParticipantUUID)
+	if participant == nil {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Participant not found"})
+		return
+	}
+	
+	// Check if database is connected
+	if config.DB == nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Database not connected"})
+		return
+	}
+	
+	// Update participant: set teamId and status to "joined"
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	_, err = config.GetCollection("participants").UpdateOne(ctx,
+		bson.M{
+			"auctionId": id,
+			"uuid":      req.ParticipantUUID,
+		},
+		bson.M{
+			"$set": bson.M{
+				"teamId": teamID,
+				"status": "joined",
+			},
+		},
+	)
+	
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to assign team: " + err.Error()})
+		return
+	}
+	
+	// Return updated participant
+	participant.TeamID = teamID
+	participant.Status = "joined"
+	
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(participant)
+}
+
 func CreateAuction(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name                string               `json:"name"`
@@ -406,9 +954,7 @@ func CreateAuction(w http.ResponseWriter, r *http.Request) {
 
 	auctions = append(auctions, auction)
 
-	// Log audit event
-	ipAddress := r.RemoteAddr
-	LogAuditEvent("admin", "CREATE_AUCTION", strconv.FormatInt(auction.ID, 10), auction.Name, "Created auction: "+auction.Name, ipAddress)
+	// Audit: Auction created (audit logging removed for MVP)
 
 	json.NewEncoder(w).Encode(auction)
 }
@@ -638,40 +1184,99 @@ func GetAuctionPresenceHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string][]int64{"onlineTeamIds": online})
 }
 
+// StartAuction starts a live auction (creator-only)
 func StartAuction(w http.ResponseWriter, r *http.Request) {
-	id, ok := getAuctionID(r)
-	if !ok {
-		http.Error(w, "Invalid auction ID", http.StatusBadRequest)
+	w.Header().Set("Content-Type", "application/json")
+	
+	// Get creator UUID from header
+	creatorUUID := r.Header.Get("X-Device-UUID")
+	if creatorUUID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "X-Device-UUID header required"})
 		return
 	}
+	
+	id, ok := getAuctionID(r)
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid auction ID"})
+		return
+	}
+	
+	// Find auction
+	auction := getAuctionByID(id)
+	if auction == nil {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Auction not found"})
+		return
+	}
+	
+	// Verify creator UUID matches
+	if auction.CreatorUUID != creatorUUID {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Only auction creator can start the auction"})
+		return
+	}
+	
+	// Verify auction status is draft or upcoming
+	if auction.Status != "draft" && auction.Status != "upcoming" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Auction must be in draft or upcoming status to start"})
+		return
+	}
+	
+	// Verify auction is not already live
+	if auction.IsLive {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Auction is already live"})
+		return
+	}
+	
+	// Update auction status in memory
 	for i := range auctions {
 		if auctions[i].ID == id {
 			auctions[i].IsLive = true
 			auctions[i].Status = "live"
 			
-			// Log audit event
-			ipAddress := r.RemoteAddr
-			LogAuditEvent("admin", "START_AUCTION", strconv.FormatInt(auctions[i].ID, 10), auctions[i].Name, "Started auction: "+auctions[i].Name, ipAddress)
+			// Auction started (audit logging removed for MVP)
 			
 			// Populate teams/players for live auction
-			auction := auctions[i]
-			auction.Teams = getTeamsForAuction(auction)
-			auction.Players = getPlayersForAuction(auction)
+			auctionData := auctions[i]
+			auctionData.Teams = getTeamsForAuction(auctionData)
+			auctionData.Players = getPlayersForAuction(auctionData)
 			
-			StartLiveAuction(auction.ID, auction)
+			// Start live auction in isolated worker
+			StartLiveAuction(auctionData.ID, auctionData)
+			
+			// Persist to database asynchronously
 			if config.DB != nil {
 				go func(a Auction) {
 					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 					defer cancel()
-					config.GetCollection("auctions").ReplaceOne(ctx, bson.M{"_id": a.ID}, a)
+					_, err := config.GetCollection("auctions").UpdateOne(
+						ctx,
+						bson.M{"_id": a.ID},
+						bson.M{"$set": bson.M{"status": "live", "isLive": true}},
+					)
+					if err != nil {
+						log.Printf("[ERROR] Failed to update auction status in DB: %v", err)
+					}
 				}(auctions[i])
 			}
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]bool{"success": true})
+			
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"success": true,
+				"message": "Auction started successfully",
+				"auctionId": auctionData.ID,
+				"status": "live",
+			})
 			return
 		}
 	}
-	http.Error(w, "Auction not found", http.StatusNotFound)
+	
+	w.WriteHeader(http.StatusNotFound)
+	json.NewEncoder(w).Encode(map[string]string{"error": "Auction not found"})
 }
 
 // UpdateAuction updates an upcoming auction (not live/completed)
@@ -855,8 +1460,7 @@ func DeleteAuction(w http.ResponseWriter, r *http.Request) {
 			}
 			
 			// Log audit event
-			ipAddress := r.RemoteAddr
-			LogAuditEvent("admin", "DELETE_AUCTION", strconv.FormatInt(id, 10), existing.Name, "Deleted auction: "+existing.Name, ipAddress)
+			// Auction deleted (audit logging removed for MVP)
 			
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -875,8 +1479,7 @@ func DeleteAuction(w http.ResponseWriter, r *http.Request) {
 			}
 			
 			// Log audit event before deletion
-			ipAddress := r.RemoteAddr
-			LogAuditEvent("admin", "DELETE_AUCTION", strconv.FormatInt(auctions[i].ID, 10), auctions[i].Name, "Deleted auction: "+auctions[i].Name, ipAddress)
+			// Auction deleted from memory (audit logging removed for MVP)
 			
 			// Remove auction from memory
 			auctions = append(auctions[:i], auctions[i+1:]...)
@@ -900,14 +1503,7 @@ func DeleteAuction(w http.ResponseWriter, r *http.Request) {
 				}(id)
 			}
 			
-			// Remove trades from memory
-			var remainingTrades []Trade
-			for _, trade := range trades {
-				if trade.AuctionID != id {
-					remainingTrades = append(remainingTrades, trade)
-				}
-			}
-			trades = remainingTrades
+			// Trades management removed - trades feature out of scope
 			
 			// Clean up presence data
 			auctionPresenceMux.Lock()
@@ -1134,10 +1730,10 @@ func getPlayersForAuction(auction Auction) []Player {
 		
 		cursor, err := config.GetCollection("auction_results").Find(ctx, bson.M{"auctionId": auction.ID})
 		if err == nil {
-			var results []AuctionResult
+			var results []PlayerResult
 			if err := cursor.All(ctx, &results); err == nil {
 				// Create a map of player results for quick lookup
-				resultMap := make(map[int64]AuctionResult)
+				resultMap := make(map[int64]PlayerResult)
 				for _, result := range results {
 					resultMap[result.PlayerID] = result
 				}
@@ -1346,7 +1942,7 @@ func GetAuctionResults(w http.ResponseWriter, r *http.Request) {
 		
 		cursor, err := config.GetCollection("auction_results").Find(ctx, bson.M{"auctionId": id})
 		if err == nil {
-			var results []AuctionResult
+			var results []PlayerResult
 			if err := cursor.All(ctx, &results); err == nil {
 				// Build team squads from results
 				allPlayers := GetPlayersStore()

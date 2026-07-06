@@ -61,11 +61,12 @@ export default function TeamSelection(props) {
       </Show>
 
       <Show when={!loading() && allTeams().length === 0}>
-        <div class="text-center py-12 border border-gray-700 rounded-lg bg-[#1a1a1a]">
-          <p class="text-gray-400 mb-3">No teams available</p>
-          <a href="/dashboard" class="text-sm text-purple-400 hover:text-purple-300">
-            Create teams first
-          </a>
+        <div class="text-center py-12 border border-red-700/50 rounded-lg bg-red-500/5">
+          <svg class="w-12 h-12 text-red-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width={2} d="M12 9v2m0 4v2m0 4v2M7.08 6.47a7.5 7.5 0 1114.84 0M7.08 6.47A7.476 7.476 0 0112 3c3.9 0 7.27 2.61 8.92 6.13" />
+          </svg>
+          <p class="text-red-400 font-medium mb-1">Teams Required</p>
+          <p class="text-sm text-gray-400">No teams are available. Teams must be set up before you can create an auction.</p>
         </div>
       </Show>
 
@@ -144,7 +145,12 @@ export default function TeamSelection(props) {
           </button>
           <button
             onClick={handleNext}
-            class="flex-1 py-2.5 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-lg transition-all"
+            disabled={allTeams().length === 0}
+            class={`flex-1 py-2.5 text-white text-sm font-medium rounded-lg transition-all ${
+              allTeams().length === 0
+                ? 'bg-gray-700 cursor-not-allowed opacity-50'
+                : 'bg-purple-500 hover:bg-purple-600'
+            }`}
           >
             Continue to Players
           </button>

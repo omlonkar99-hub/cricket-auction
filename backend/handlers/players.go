@@ -114,9 +114,7 @@ func CreatePlayer(w http.ResponseWriter, r *http.Request) {
 
 	players = append(players, player)
 
-	// Log audit event
-	ipAddress := r.RemoteAddr
-	LogAuditEvent("admin", "CREATE_PLAYER", strconv.FormatInt(player.ID, 10), player.Name, "Created player: "+player.Name, ipAddress)
+	// Player created (audit logging removed for MVP)
 
 	if config.DB != nil {
 		go func(p Player) {
@@ -161,9 +159,7 @@ func DeletePlayer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Log audit event before deletion
-	ipAddress := r.RemoteAddr
-	LogAuditEvent("admin", "DELETE_PLAYER", strconv.FormatInt(player.ID, 10), player.Name, "Deleted player: "+player.Name, ipAddress)
+	// Player deleted (audit logging removed for MVP)
 
 	// Create snapshots for completed auctions BEFORE deleting
 	createPlayerSnapshots(id, *player)
@@ -224,7 +220,6 @@ func UpdatePlayer(w http.ResponseWriter, r *http.Request) {
 
 	for i := range players {
 		if players[i].ID == id {
-			oldName := players[i].Name
 			// Update only the core player fields
 			players[i].Name = req.Name
 			players[i].Role = req.Role
@@ -234,13 +229,7 @@ func UpdatePlayer(w http.ResponseWriter, r *http.Request) {
 			// Preserve auction-specific fields (Order, Status, TeamID, SoldPrice)
 			// These should only be modified during auction operations, not player management
 
-			// Log audit event
-			ipAddress := r.RemoteAddr
-			details := "Updated player: " + oldName
-			if oldName != req.Name {
-				details += " → " + req.Name
-			}
-			LogAuditEvent("admin", "UPDATE_PLAYER", strconv.FormatInt(players[i].ID, 10), players[i].Name, details, ipAddress)
+			// Player updated (audit logging removed for MVP)
 
 			// Save to DB asynchronously
 			if config.DB != nil {

@@ -1,36 +1,33 @@
 import { createSignal, Show } from 'solid-js';
 import { apiCall } from '../utils/api';
-import AuctionBasicInfo from './auction-creation/AuctionBasicInfo';
-import AuctionSettings from './auction-creation/AuctionSettings';
+import NoAuthAuctionBasicInfo from './auction-creation/NoAuthAuctionBasicInfo';
 import TeamSelection from './auction-creation/TeamSelection';
 import PlayerSelection from './auction-creation/PlayerSelection';
-import RoleOrder from './auction-creation/RoleOrder';
-import PlayerOrder from './auction-creation/PlayerOrder';
-import ReviewAuction from './auction-creation/ReviewAuction';
+import NoAuthAuctionSettings from './auction-creation/NoAuthAuctionSettings';
+import NoAuthReviewAuction from './auction-creation/NoAuthReviewAuction';
 
 export default function CreateAuction(props) {
   const [step, setStep] = createSignal(1);
-  const initial = props.initialData || {};
-  const normalizedType = initial.type === 'ipl' ? 'regular' : initial.type;
+  const [error, setError] = createSignal(null);
+  
   const [auctionData, setAuctionData] = createSignal({
-    id: initial.id,
-    name: initial.name || '',
-    description: initial.description || '',
-    type: normalizedType || 'regular',
-    budget: initial.budget || 100,
-    squadSize: initial.squadSize || initial.playersLimit || 25,
-    overseasLimit: initial.overseasLimit || 8,
-    timerDuration: initial.timerDuration || 10,
-    selectedTeams: initial.selectedTeams || [],
-    selectedPlayers: initial.selectedPlayers || [],
-    roleOrder: initial.roleOrder || ['Batsman', 'Bowler', 'All-rounder', 'Wicket-keeper'],
-    playerOrder: initial.playerOrder || {}
+    name: '',
+    description: '',
+    visibility: 'public',
+    accessCode: '',
+    budget: 100,
+    timerDuration: 10,
+    playersLimit: 25,
+    overseasLimit: 8,
+    selectedTeams: [],
+    selectedPlayers: []
   });
 
-  const totalSteps = 7;
+  const totalSteps = 5;
 
   const updateAuctionData = (key, value) => {
     setAuctionData(prev => ({ ...prev, [key]: value }));
+    setError(null);
   };
 
   const nextStep = () => {
@@ -45,42 +42,63 @@ export default function CreateAuction(props) {
     }
   };
 
+  const getOrCreateDeviceUUID = () => {
+    let uuid = localStorage.getItem('deviceUUID');
+    if (!uuid) {
+      uuid = crypto.randomUUID();
+      localStorage.setItem('deviceUUID', uuid);
+    }
+    return uuid;
+  };
+
   const handleCreate = async () => {
     try {
-      const payload = { ...auctionData() };
-      if (!payload.type) payload.type = 'regular';
+      setError(null);
+      const uuid = getOrCreateDeviceUUID();
+      const data = auctionData();
 
-      // Ensure all IDs are strings for backend
-      if (payload.selectedTeams) {
-        payload.selectedTeams = payload.selectedTeams.map(id => String(id));
+      // Validate required fields
+      if (!data.name?.trim()) {
+        throw new Error('Auction name is required');
       }
-      if (payload.selectedPlayers) {
-        payload.selectedPlayers = payload.selectedPlayers.map(id => String(id));
+      if (data.selectedTeams.length === 0) {
+        throw new Error('At least one team must be selected');
       }
-      if (payload.playerOrder) {
-        const convertedPlayerOrder = {};
-        for (const [role, playerIds] of Object.entries(payload.playerOrder)) {
-          convertedPlayerOrder[role] = playerIds.map(id => String(id));
-        }
-        payload.playerOrder = convertedPlayerOrder;
+      if (data.selectedPlayers.length === 0) {
+        throw new Error('At least one player must be selected');
       }
 
-      const isEdit = props.mode === 'edit' && payload.id;
-      const url = isEdit ? `/api/auctions/${payload.id}` : '/api/auctions';
-      const method = isEdit ? 'PUT' : 'POST';
+      const payload = {
+        name: data.name,
+        description: data.description || '',
+        visibility: data.visibility,
+        selectedTeams: data.selectedTeams.map(id => String(id)),
+        selectedPlayers: data.selectedPlayers.map(id => String(id)),
+        budget: data.budget,
+        timerDuration: data.timerDuration,
+        playersLimit: data.playersLimit,
+        overseasLimit: data.overseasLimit
+      };
 
-      const res = await apiCall(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
+      const res = await apiCall('/api/auctions', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Device-UUID': uuid
+        },
         body: JSON.stringify(payload)
       });
       
       if (res.ok) {
         const created = await res.json();
-        props.onBack();
+        // Store display name in localStorage for this auction
+        localStorage.setItem(`auction_${created.id}`, JSON.stringify({
+          displayName: uuid,
+          joinedAt: new Date().toISOString()
+        }));
+        props.onNavigate?.('auction', created);
       } else {
-        // Handle different response types
-        let errorMessage = 'Failed to save auction';
+        let errorMessage = 'Failed to create auction';
         const contentType = res.headers.get('content-type');
         
         if (contentType && contentType.includes('application/json')) {
@@ -88,17 +106,15 @@ export default function CreateAuction(props) {
             const err = await res.json();
             errorMessage = err.error || err.message || errorMessage;
           } catch (e) {
-            // JSON parsing failed, use default message
+            // JSON parsing failed
           }
-        } else {
-          // Non-JSON response (likely HTML error page)
-          errorMessage = `Server error (${res.status}): ${res.statusText}`;
         }
         
         throw new Error(errorMessage);
       }
     } catch (error) {
-      throw error;
+      setError(error.message || 'An error occurred');
+      console.error('Error creating auction:', error);
     }
   };
 
@@ -117,18 +133,30 @@ export default function CreateAuction(props) {
             <span class="text-sm">Back</span>
           </button>
           <h1 class="text-lg font-bold">
-            {props.mode === 'edit' ? 'Edit Auction' : 'Create Auction'}
+            Create Auction
           </h1>
           <div class="ml-auto text-xs text-gray-400">
-            Step {step()} of 7
+            Step {step()} of {totalSteps}
           </div>
         </div>
       </div>
       
+      {/* Error Display */}
+      <Show when={error()}>
+        <div class="max-w-[1200px] mx-auto px-4 py-3">
+          <div class="bg-red-500/10 border border-red-500/30 rounded-lg p-3 flex gap-2">
+            <svg class="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+            </svg>
+            <p class="text-sm text-red-400">{error()}</p>
+          </div>
+        </div>
+      </Show>
+      
       {/* Content */}
       <div class="max-w-[1200px] mx-auto px-4 py-3">
         <Show when={step() === 1}>
-          <AuctionBasicInfo 
+          <NoAuthAuctionBasicInfo 
             data={auctionData()} 
             onUpdate={updateAuctionData}
             onNext={nextStep}
@@ -136,15 +164,6 @@ export default function CreateAuction(props) {
         </Show>
 
         <Show when={step() === 2}>
-          <AuctionSettings 
-            data={auctionData()} 
-            onUpdate={updateAuctionData}
-            onNext={nextStep}
-            onBack={prevStep}
-          />
-        </Show>
-
-        <Show when={step() === 3}>
           <TeamSelection 
             data={auctionData()} 
             onUpdate={updateAuctionData}
@@ -153,7 +172,7 @@ export default function CreateAuction(props) {
           />
         </Show>
 
-        <Show when={step() === 4}>
+        <Show when={step() === 3}>
           <PlayerSelection 
             data={auctionData()} 
             onUpdate={updateAuctionData}
@@ -162,30 +181,19 @@ export default function CreateAuction(props) {
           />
         </Show>
 
+        <Show when={step() === 4}>
+          <NoAuthAuctionSettings
+            data={auctionData()} 
+            onUpdate={updateAuctionData}
+            onNext={nextStep}
+            onBack={prevStep}
+          />
+        </Show>
+
         <Show when={step() === 5}>
-          <RoleOrder 
-            data={auctionData()} 
-            onUpdate={updateAuctionData}
-            onNext={nextStep}
-            onBack={prevStep}
-          />
-        </Show>
-
-        <Show when={step() === 6}>
-          <PlayerOrder 
-            data={auctionData()} 
-            onUpdate={updateAuctionData}
-            onNext={nextStep}
-            isEditing={props.mode === 'edit'}
-            onBack={prevStep}
-          />
-        </Show>
-
-        <Show when={step() === 7}>
-          <ReviewAuction 
+          <NoAuthReviewAuction 
             data={auctionData()} 
             onCreate={handleCreate}
-            isEditing={props.mode === 'edit'}
             onBack={prevStep}
           />
         </Show>

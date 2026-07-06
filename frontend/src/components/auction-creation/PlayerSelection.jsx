@@ -77,11 +77,12 @@ export default function PlayerSelection(props) {
       </Show>
 
       <Show when={!loading() && allPlayers().length === 0}>
-        <div class="text-center py-8">
-          <p class="text-gray-400 mb-4">No players available. Create players first.</p>
-          <a href="/dashboard" class="text-purple-400 hover:text-purple-300">
-            Go to Dashboard
-          </a>
+        <div class="text-center py-12 border border-red-700/50 rounded-lg bg-red-500/5">
+          <svg class="w-12 h-12 text-red-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width={2} d="M12 9v2m0 4v2m0 4v2M7.08 6.47a7.5 7.5 0 1114.84 0M7.08 6.47A7.476 7.476 0 0112 3c3.9 0 7.27 2.61 8.92 6.13" />
+          </svg>
+          <p class="text-red-400 font-medium mb-1">Players Required</p>
+          <p class="text-sm text-gray-400">No players are available. Players must be set up before you can create an auction.</p>
         </div>
       </Show>
 
@@ -196,7 +197,12 @@ export default function PlayerSelection(props) {
         </button>
         <button
           onClick={handleNext}
-          class="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium rounded-lg transition-all"
+          disabled={allPlayers().length === 0}
+          class={`w-full sm:w-auto px-6 py-2.5 text-white font-medium rounded-lg transition-all ${
+            allPlayers().length === 0
+              ? 'bg-gray-700 cursor-not-allowed opacity-50'
+              : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
+          }`}
         >
           Continue to Role Order
         </button>

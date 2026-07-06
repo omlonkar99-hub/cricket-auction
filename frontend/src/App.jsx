@@ -1,14 +1,14 @@
-import { createSignal, createEffect, onMount, onCleanup, Show, Switch, Match } from 'solid-js';
-import { apiCall } from './utils/api.js';
+import { createSignal, createEffect, onMount, Show, Switch, Match } from 'solid-js';
 import Login from './components/Login';
 
 const ROUTE_KEY = 'app_route';
 import HomePage from './components/HomePage';
-import AuctionsPage from './components/AuctionsPage';
+import AdminLogin from './components/AdminLogin';
+import AuctionBrowser from './components/AuctionBrowser';
 import DashboardHome from './components/DashboardHome';
 import AuctionContainer from './components/AuctionContainer';
-import RetentionAuctionContainer from './components/RetentionAuctionContainer';
 import CreateAuction from './components/CreateAuction';
+import JoinAuction from './components/JoinAuction';
 
 function App() {
   const [currentPage, setCurrentPage] = createSignal('home');
@@ -18,6 +18,31 @@ function App() {
   const [showLogin, setShowLogin] = createSignal(false);
 
   onMount(() => {
+    // Parse current URL path
+    const path = window.location.pathname;
+    
+    // Check if admin is logged in
+    const adminToken = localStorage.getItem('adminToken');
+    const adminUsername = localStorage.getItem('adminUsername');
+    
+    // Route based on URL
+    if (path === '/admin/login') {
+      setCurrentPage('adminLogin');
+    } else if (path === '/dashboard') {
+      // Protect dashboard - require login
+      if (!adminToken || !adminUsername) {
+        window.location.href = '/admin/login';
+        return;
+      }
+      setCurrentPage('adminDashboard');
+    } else if (path.includes('/browse')) {
+      setCurrentPage('auctionBrowser');
+    } else if (path.includes('/create')) {
+      setCurrentPage('createAuction');
+    } else {
+      setCurrentPage('home');
+    }
+
     const token = localStorage.getItem('authToken');
     const username = localStorage.getItem('username');
     const role = localStorage.getItem('role');
@@ -31,50 +56,8 @@ function App() {
       }
       setCurrentUser(user);
       setIsAuthenticated(true);
-      
-      // No session validation needed - sessions persist until code/password change
     }
-
-    // Restore last page/auction so refresh keeps user on same interface
-    try {
-      const saved = sessionStorage.getItem(ROUTE_KEY);
-        if (saved) {
-          const { page, auctionId, auctionName, auctionData } = JSON.parse(saved);
-          if (page && ['home', 'auctions', 'dashboard', 'auction', 'editAuction'].includes(page)) {
-            const needAuth = page === 'dashboard' || page === 'editAuction';
-            if (needAuth && !token) {
-              setCurrentPage('home');
-            } else {
-              setCurrentPage(page);
-              if (page === 'auction' && auctionId != null) {
-                setSelectedAuction({ id: String(auctionId), name: auctionName || 'Auction' });
-              }
-              if (page === 'editAuction' && auctionData) {
-                setSelectedAuction({ ...auctionData, id: auctionData?.id != null ? String(auctionData.id) : auctionData?.id });
-              }
-            }
-          }
-        }
-      } catch (_) {}
   });
-
-  // Session validation - only validate on WebSocket connection for teams
-  // No continuous polling - sessions don't expire on inactivity
-  
-  const validateSessionOnConnect = (token, userRole) => {
-    // For teams: validate only when connecting to WebSocket (in auction room)
-    // For admins: no validation needed - sessions persist until password change or code change
-    // Sessions are invalidated ONLY when:
-    // 1. Team code is changed by admin
-    // 2. Admin password is changed
-    // 3. Admin is deleted
-  };
-
-  onCleanup(() => {
-    // No session validation cleanup needed
-  });
-
-  // Persist route so refresh keeps same interface
   createEffect(() => {
     const page = currentPage();
     const auction = selectedAuction();
@@ -90,7 +73,7 @@ function App() {
     setCurrentUser(userData);
     setIsAuthenticated(true);
     setShowLogin(false);
-    setCurrentPage('home'); // Everyone goes to home after login
+    setCurrentPage('home'); // 
   };
 
   const handleLogout = () => {
@@ -98,16 +81,30 @@ function App() {
     localStorage.removeItem('username');
     localStorage.removeItem('role');
     localStorage.removeItem('teamId');
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminUsername');
     sessionStorage.removeItem(ROUTE_KEY);
     setCurrentUser(null);
     setIsAuthenticated(false);
     setCurrentPage('home');
     setSelectedAuction(null);
+    window.location.href = '/';
   };
 
   const handleNavigate = (page, auctionData) => {
-    // Require login for dashboard and auction editing only
-    // Auction viewing is allowed without login (read-only mode)
+    // Update URL based on page
+    if (page === 'home') {
+      window.history.pushState({}, '', '/');
+    } else if (page === 'adminLogin') {
+      window.history.pushState({}, '', '/admin/login');
+    } else if (page === 'adminDashboard') {
+      window.history.pushState({}, '', '/dashboard');
+    } else if (page === 'auctionBrowser') {
+      window.history.pushState({}, '', '/browse');
+    } else if (page === 'createAuction') {
+      window.history.pushState({}, '', '/create');
+    }
+    
     if ((page === 'dashboard' || page === 'editAuction') && !isAuthenticated()) {
       setShowLogin(true);
       return;
@@ -122,6 +119,12 @@ function App() {
       });
     }
     if (page === 'auction' && auctionData) {
+      setSelectedAuction({
+        ...auctionData,
+        id: auctionData.id != null ? String(auctionData.id) : auctionData.id
+      });
+    }
+    if (page === 'joinAuction' && auctionData) {
       setSelectedAuction({
         ...auctionData,
         id: auctionData.id != null ? String(auctionData.id) : auctionData.id
@@ -149,21 +152,39 @@ function App() {
       </Show>
       
       <Switch fallback={<div>Loading...</div>}>
-        <Match when={currentPage() === 'retentionAuction' && selectedAuction()}>
-          <RetentionAuctionContainer
-            auctionId={selectedAuction().id}
+        <Match when={currentPage() === 'adminLogin'}>
+          <AdminLogin />
+        </Match>
+        
+        <Match when={currentPage() === 'adminDashboard'}>
+          <DashboardHome 
+            onNavigate={handleNavigate} 
             currentUser={currentUser()}
-            isAdmin={String(currentUser()?.role || '').toLowerCase().includes('admin')}
-            onBack={() => setCurrentPage('auctions')}
+            onLogout={handleLogout}
           />
         </Match>
         
-        <Match when={currentPage() === 'auction' && selectedAuction()}>
-          <AuctionContainer
+        <Match when={currentPage() === 'auctionBrowser'}>
+          <AuctionBrowser
+            onNavigate={handleNavigate}
+            onBack={() => handleNavigate('home')}
+          />
+        </Match>
+        
+        <Match when={currentPage() === 'joinAuction' && selectedAuction()}>
+          <JoinAuction
             auctionId={selectedAuction().id}
-            currentUser={currentUser()}
-            isAdmin={String(currentUser()?.role || '').toLowerCase().includes('admin')}
-            onBack={() => setCurrentPage('auctions')}
+            onJoinSuccess={() => {
+              setCurrentPage('auction');
+            }}
+            onBack={() => setCurrentPage('auctionBrowser')}
+          />
+        </Match>
+        
+        <Match when={currentPage() === 'createAuction'}>
+          <CreateAuction
+            onNavigate={handleNavigate}
+            onBack={() => setCurrentPage('home')}
           />
         </Match>
         
@@ -184,9 +205,9 @@ function App() {
         </Match>
         
         <Match when={currentPage() === 'auctions'}>
-          <AuctionsPage
+          <AuctionBrowser
             onNavigate={handleNavigate}
-            currentUser={currentUser()}
+            onBack={() => setCurrentPage('home')}
           />
         </Match>
         

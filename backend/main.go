@@ -14,21 +14,6 @@ import (
 	"cricket-auction/handlers"
 )
 
-type Player struct {
-	ID       string  `json:"id"`
-	Name     string  `json:"name"`
-	Role     string  `json:"role"`
-	BasePrice float64 `json:"basePrice"`
-	ImageURL string  `json:"imageUrl"`
-}
-
-type Bid struct {
-	PlayerID string  `json:"playerId"`
-	TeamName string  `json:"teamName"`
-	Amount   float64 `json:"amount"`
-	Time     string  `json:"time"`
-}
-
 func main() {
 	// Load .env file
 	godotenv.Load()
@@ -40,8 +25,6 @@ func main() {
 	handlers.LoadTeamsFromDB()
 	handlers.LoadPlayersFromDB()
 	handlers.LoadAuctionsFromDB()
-	handlers.LoadRetentionAuctionsFromDB()
-	handlers.LoadTradesFromDB()
 
 	// Initialize ID counter based on existing data
 	maxID := handlers.GetMaxIDFromData()
@@ -49,9 +32,6 @@ func main() {
 
 	// Initialize Cloudinary
 	config.InitCloudinary()
-
-	// Initialize default superadmin
-	handlers.InitializeDefaultAdmin()
 	
 	// Start automatic cleanup (runs daily)
 	go func() {
@@ -59,11 +39,9 @@ func main() {
 		defer ticker.Stop()
 		
 		// Run cleanup immediately on startup
-		handlers.CleanupOldAuditLogs()
 		handlers.CleanupOldDraftAuctions()
 		
 		for range ticker.C {
-			handlers.CleanupOldAuditLogs()
 			handlers.CleanupOldDraftAuctions()
 		}
 	}()
@@ -75,6 +53,19 @@ func main() {
 	
 	// Add panic recovery middleware
 	r.Use(panicRecoveryMiddleware)
+
+	// Define public routes (accessible without UUID)
+	publicRoutes := map[string]bool{
+		"GET /api/auctions":   true,
+		"GET /api/teams":      true,
+		"GET /api/players":    true,
+		"GET /health":         true,
+		"OPTIONS /api":        true,
+		"OPTIONS /":           true,
+	}
+
+	// Apply UUID middleware (checks X-Device-UUID header for protected routes)
+	r.Use(uuidMiddleware(publicRoutes))
 	
 	// Handle OPTIONS requests for all routes
 	r.Methods("OPTIONS").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -104,17 +95,8 @@ func main() {
 	api.HandleFunc("/players/{id}", handlers.UpdatePlayer).Methods("PUT")
 	api.HandleFunc("/players/{id}", handlers.DeletePlayer).Methods("DELETE")
 	
-	// Auction Health
-	api.HandleFunc("/auction/health", handlers.GetAuctionHealth).Methods("GET")
-	
-	// Legacy endpoints
-	api.HandleFunc("/players", getPlayers).Methods("GET")
-	api.HandleFunc("/players/{id}", getPlayer).Methods("GET")
-	api.HandleFunc("/bids", placeBid).Methods("POST")
-	api.HandleFunc("/bids/{playerId}", getBids).Methods("GET")
-	
 	// Auction management routes
-	api.HandleFunc("/auctions", handlers.CreateAuction).Methods("POST")
+	api.HandleFunc("/auctions", handlers.CreateAuctionNoAuth).Methods("POST")
 	api.HandleFunc("/auctions", handlers.GetAuctions).Methods("GET")
 	api.HandleFunc("/auctions/{id}", handlers.GetAuctionByID).Methods("GET")
 	api.HandleFunc("/auctions/{id}", handlers.UpdateAuction).Methods("PUT")
@@ -124,65 +106,44 @@ func main() {
 	api.HandleFunc("/auctions/{id}/start", handlers.StartAuction).Methods("POST")
 	api.HandleFunc("/auctions/{id}/presence", handlers.UpdateAuctionPresenceHandler).Methods("POST")
 	api.HandleFunc("/auctions/{id}/presence", handlers.GetAuctionPresenceHandler).Methods("GET")
+	api.HandleFunc("/auctions/{id}/join", handlers.JoinAuction).Methods("POST")
+	api.HandleFunc("/auctions/{id}/remove-user", handlers.RemoveParticipant).Methods("POST")
+	api.HandleFunc("/auctions/{id}/assign-team", handlers.AssignTeam).Methods("POST")
 	
 	// Post-auction actions
-	api.HandleFunc("/auctions/duplicate", handlers.DuplicateAuction).Methods("POST")
-	api.HandleFunc("/auctions/retention", handlers.CreateRetentionPhase).Methods("POST")
-	api.HandleFunc("/auctions/trade-window", handlers.CreateTradeWindow).Methods("POST")
-	
-	// Retention Auction routes
-	api.HandleFunc("/retention-auctions", handlers.CreateRetentionAuction).Methods("POST")
-	api.HandleFunc("/retention-auctions", handlers.GetRetentionAuctions).Methods("GET")
-	api.HandleFunc("/retention-auctions/{id}", handlers.GetRetentionAuctionByID).Methods("GET")
-	api.HandleFunc("/retention-auctions/{id}", handlers.DeleteRetentionAuction).Methods("DELETE")
-	api.HandleFunc("/retention-auctions/{id}/start", handlers.StartRetentionWindow).Methods("POST")
-	api.HandleFunc("/retention-auctions/{id}/close", handlers.CloseRetentionWindow).Methods("POST")
-	api.HandleFunc("/retention-auctions/{id}/team/{teamId}/players", handlers.GetTeamAssignedPlayers).Methods("GET")
-	api.HandleFunc("/retention-auctions/{id}/retentions", handlers.GetTeamRetentions).Methods("GET")
-	api.HandleFunc("/retention-auctions/{id}/review", handlers.GetRetentionReview).Methods("GET")
-	api.HandleFunc("/retention-auctions/{id}/start-auction", handlers.StartLiveAuctionFromRetention).Methods("POST")
-	api.HandleFunc("/retention-auctions/{id}/presence", handlers.UpdateRetentionPresenceHandler).Methods("POST")
-	api.HandleFunc("/retention-auctions/{id}/presence", handlers.GetRetentionPresenceHandler).Methods("GET")
-	api.HandleFunc("/retention-auctions/submit", handlers.SubmitTeamRetention).Methods("POST")
-	
-	// Trade routes
-	api.HandleFunc("/auctions/trade", handlers.CreateTradeRequest).Methods("POST")
-	api.HandleFunc("/auctions/{id}/trades", handlers.GetAuctionTrades).Methods("GET")
-	api.HandleFunc("/auctions/trade/{tradeId}/accept", handlers.AcceptTradeRequest).Methods("POST")
-	api.HandleFunc("/auctions/trade/{tradeId}/reject", handlers.RejectTradeRequest).Methods("POST")
-	api.HandleFunc("/auctions/trade/{tradeId}/cancel", handlers.CancelTradeRequest).Methods("POST")
-	api.HandleFunc("/auctions/{id}/trade-window", handlers.GetTradeWindow).Methods("GET")
-	api.HandleFunc("/auctions/{id}/trade-window/start", handlers.StartTradeWindow).Methods("POST")
-	api.HandleFunc("/auctions/{id}/trade-window/end", handlers.EndTradeWindow).Methods("POST")
+	api.HandleFunc("/auctions/{id}/duplicate", handlers.DuplicateAuction).Methods("POST")
 	
 	// WebSocket for live auction
 	api.HandleFunc("/auctions/{id}/ws", handlers.HandleWebSocket)
 	api.HandleFunc("/auctions/{id}/state", handlers.GetAuctionState).Methods("GET")
 	
-	// Image upload
-	api.HandleFunc("/upload", handlers.UploadImage).Methods("POST")
-	
-	// Authentication
-	api.HandleFunc("/auth/login", handlers.Login).Methods("POST")
-	api.HandleFunc("/auth/team-login", handlers.TeamLogin).Methods("POST")
-	api.HandleFunc("/auth/team-validate", handlers.TeamValidate).Methods("GET", "POST")
-	api.HandleFunc("/auth/validate", handlers.ValidateSession).Methods("GET")
-	api.HandleFunc("/auth/change-password", handlers.ChangePassword).Methods("POST")
-	api.HandleFunc("/auth/admins", handlers.GetAllAdmins).Methods("GET")
-	api.HandleFunc("/auth/admins", handlers.CreateAdmin).Methods("POST")
-	api.HandleFunc("/auth/admins", handlers.DeleteAdmin).Methods("DELETE")
-	
-	// Audit logs (superadmin only)
-	api.HandleFunc("/audit/logs", handlers.GetAuditLogs).Methods("GET")
-	api.HandleFunc("/audit/logs", handlers.DeleteAuditLogs).Methods("DELETE")
-	api.HandleFunc("/audit/stats", handlers.GetAuditStats).Methods("GET")
+	// Health check
+	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}).Methods("GET")
 
-	// Health check for UptimeRobot
-	r.HandleFunc("/health", handlers.HealthCheck).Methods("GET")
-	api.HandleFunc("/health", handlers.HealthCheck).Methods("GET")
-	
-	// System health
-	api.HandleFunc("/system/health", handlers.GetSystemHealth).Methods("GET")
+	// ========== ADMIN ROUTES ==========
+	// Admin login (public endpoint, no auth required)
+	r.HandleFunc("/admin/login", handlers.AdminLogin).Methods("POST")
+	r.HandleFunc("/admin/logout", handlers.AdminLogout).Methods("POST")
+
+	// Admin API routes (protected with auth middleware)
+	admin := r.PathPrefix("/admin/api").Subrouter()
+	admin.Use(adminAuthMiddleware)
+
+	// Admin Teams Management
+	admin.HandleFunc("/teams", handlers.GetTeams).Methods("GET")
+	admin.HandleFunc("/teams", handlers.CreateTeam).Methods("POST")
+	admin.HandleFunc("/teams/{id}", handlers.UpdateTeam).Methods("PUT")
+	admin.HandleFunc("/teams/{id}", handlers.DeleteTeam).Methods("DELETE")
+
+	// Admin Players Management
+	admin.HandleFunc("/players", handlers.GetPlayers).Methods("GET")
+	admin.HandleFunc("/players", handlers.CreatePlayer).Methods("POST")
+	admin.HandleFunc("/players/{id}", handlers.UpdatePlayer).Methods("PUT")
+	admin.HandleFunc("/players/{id}", handlers.DeletePlayer).Methods("DELETE")
 
 	// Get port from environment variable (Render sets this automatically)
 	port := os.Getenv("PORT")
@@ -248,53 +209,65 @@ func panicRecoveryMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func getPlayers(w http.ResponseWriter, r *http.Request) {
-	players := []Player{
-		{ID: "1", Name: "Shreyas Iyer", Role: "Batsman", BasePrice: 12.25, ImageURL: ""},
-		{ID: "2", Name: "Virat Kohli", Role: "Batsman", BasePrice: 15.00, ImageURL: ""},
-		{ID: "3", Name: "Jasprit Bumrah", Role: "Bowler", BasePrice: 14.00, ImageURL: ""},
-	}
+// uuidMiddleware extracts X-Device-UUID header from requests
+// For protected routes: returns 400 if UUID header is missing
+// For public routes: UUID is optional
+func uuidMiddleware(publicRoutes map[string]bool) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			uuid := r.Header.Get("X-Device-UUID")
+			path := r.URL.Path
+			method := r.Method
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(players)
+			// Check if this is a public route (method + path combination)
+			routeKey := method + " " + path
+			isPublic := publicRoutes[routeKey]
+
+			// Check for pattern-based public routes
+			if !isPublic && (strings.HasPrefix(path, "/api/auctions") && method == "GET") {
+				isPublic = true // GET /api/auctions is public
+			}
+			if !isPublic && (strings.HasPrefix(path, "/api/teams") && method == "GET") {
+				isPublic = true // GET /api/teams is public
+			}
+
+			// For protected routes, UUID is required
+			if !isPublic && uuid == "" {
+				http.Error(w, "Missing X-Device-UUID header", http.StatusBadRequest)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
-func getPlayer(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	playerID := vars["id"]
+// adminAuthMiddleware validates admin session tokens
+func adminAuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Extract token from Authorization header
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Missing authorization header", http.StatusUnauthorized)
+			return
+		}
 
-	player := Player{
-		ID:       playerID,
-		Name:     "Shreyas Iyer",
-		Role:     "Batsman",
-		BasePrice: 12.25,
-		ImageURL: "",
-	}
+		// Token format: "Bearer <token>"
+		const bearerSchema = "Bearer "
+		if len(authHeader) < len(bearerSchema) || authHeader[:len(bearerSchema)] != bearerSchema {
+			http.Error(w, "Invalid authorization format", http.StatusUnauthorized)
+			return
+		}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(player)
-}
+		token := authHeader[len(bearerSchema):]
 
-func placeBid(w http.ResponseWriter, r *http.Request) {
-	var bid Bid
-	if err := json.NewDecoder(r.Body).Decode(&bid); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+		// Validate token
+		_, valid := handlers.ValidateAdminSession(token)
+		if !valid {
+			http.Error(w, "Invalid or expired session token", http.StatusUnauthorized)
+			return
+		}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Bid placed"})
-}
-
-func getBids(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	playerID := vars["playerId"]
-
-	bids := []Bid{
-		{PlayerID: playerID, TeamName: "Team A", Amount: 12.75, Time: "10:30:45"},
-		{PlayerID: playerID, TeamName: "Team B", Amount: 13.00, Time: "10:31:12"},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(bids)
+		next.ServeHTTP(w, r)
+	})
 }

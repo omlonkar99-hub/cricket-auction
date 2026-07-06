@@ -4,10 +4,22 @@ import AuctionWaitingRoom from './AuctionWaitingRoom';
 import AuctionRoom from './AuctionRoom';
 import AuctionSummary from './AuctionSummary';
 
+// Get or create device UUID
+const getDeviceUUID = () => {
+  if (typeof window === 'undefined') return '';
+  let uuid = localStorage.getItem('deviceUUID');
+  if (!uuid) {
+    uuid = crypto.randomUUID();
+    localStorage.setItem('deviceUUID', uuid);
+  }
+  return uuid;
+};
+
 export default function AuctionContainer(props) {
   const [auctionState, setAuctionState] = createSignal('loading'); // loading, waiting, live, completed
   const [auctionData, setAuctionData] = createSignal(null);
   const [loadError, setLoadError] = createSignal('');
+  const [isCreator, setIsCreator] = createSignal(false);
 
   let statusInterval;
 
@@ -36,6 +48,11 @@ export default function AuctionContainer(props) {
       const data = await res.json();
       setAuctionData(data);
       setLoadError('');
+
+      // Check if current user is the creator
+      const deviceUUID = getDeviceUUID();
+      const isCreatorUser = data.creatorUUID === deviceUUID;
+      setIsCreator(isCreatorUser);
 
       if (data.status === 'completed') {
         // Auction is completed - show summary
@@ -132,7 +149,7 @@ export default function AuctionContainer(props) {
           teamId={() => props.currentUser?.role === 'team' ? props.currentUser.teamId : null}
           teamName={() => props.currentUser?.role === 'team' ? props.currentUser.username : null}
           shortName={() => props.currentUser?.shortName ?? null}
-          isAdmin={() => props.isAdmin}
+          isAdmin={() => isCreator()}
           onBack={props.onBack}
           onAuctionEnd={handleAuctionEnd}
         />
@@ -150,7 +167,7 @@ export default function AuctionContainer(props) {
         }>
           <AuctionWaitingRoom
             auctionData={auctionData()}
-            isAdmin={props.isAdmin}
+            isAdmin={isCreator()}
             currentUser={props.currentUser}
             onStartAuction={handleStartAuction}
             onBack={props.onBack}

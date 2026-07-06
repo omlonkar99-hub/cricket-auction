@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"strconv"
 	"sync"
 	"time"
 
@@ -48,7 +47,7 @@ type LiveAuction struct {
 	ClientsMux sync.RWMutex // Changed to RWMutex for better concurrency
 
 	// Results (written to DB at end of each player)
-	Results []AuctionResult
+	Results []PlayerResult
 	// Track if unsold round has started
 	unsoldRoundStarted bool
 	
@@ -70,7 +69,7 @@ type Bid struct {
 	Time   time.Time
 }
 
-type AuctionResult struct {
+type PlayerResult struct {
 	AuctionID  int64   `json:"auctionId" bson:"auctionId"`
 	PlayerID   int64   `json:"playerId,string" bson:"playerId"`
 	PlayerName string  `json:"playerName" bson:"playerName"`
@@ -119,9 +118,9 @@ var (
 )
 
 // loadAuctionResults loads existing auction results from database
-func loadAuctionResults(auctionID int64) []AuctionResult {
+func loadAuctionResults(auctionID int64) []PlayerResult {
 	if config.DB == nil {
-		return make([]AuctionResult, 0)
+		return make([]PlayerResult, 0)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -130,13 +129,13 @@ func loadAuctionResults(auctionID int64) []AuctionResult {
 	collection := config.GetCollection("auction_results")
 	cursor, err := collection.Find(ctx, bson.M{"auctionId": auctionID})
 	if err != nil {
-		return make([]AuctionResult, 0)
+		return make([]PlayerResult, 0)
 	}
 	defer cursor.Close(ctx)
 
-	var results []AuctionResult
+	var results []PlayerResult
 	if err = cursor.All(ctx, &results); err != nil {
-		return make([]AuctionResult, 0)
+		return make([]PlayerResult, 0)
 	}
 
 	return results
@@ -154,11 +153,11 @@ func StartLiveAuction(auctionID int64, auction Auction) {
 	
 	// Create live auction state
 	// Load existing auction results ONLY for retention auctions (pre-assigned players)
-	var existingResults []AuctionResult
+	var existingResults []PlayerResult
 	if auction.Type == "retention" {
 		existingResults = loadAuctionResults(auctionID)
 	} else {
-		existingResults = make([]AuctionResult, 0)
+		existingResults = make([]PlayerResult, 0)
 	}
 	
 	// Calculate spent budget per team from existing results
@@ -385,7 +384,7 @@ func (la *LiveAuction) finalizePlayer() {
 		return
 	}
 
-	result := AuctionResult{
+	result := PlayerResult{
 		AuctionID:  la.ID,
 		PlayerID:   la.CurrentPlayer.ID,
 		PlayerName: la.CurrentPlayer.Name,
@@ -481,8 +480,7 @@ func (la *LiveAuction) nextPlayer() {
 			// Unsold round complete, auction is fully completed
 			la.IsRunning = false
 			
-			// Log audit event for auction completion
-			LogAuditEvent("admin", "END_AUCTION", strconv.FormatInt(la.ID, 10), la.Name, "Auction completed: "+la.Name, "system")
+			// Auction completion (audit logging removed for MVP)
 			
 			// Save all auction results to DB synchronously before marking as completed
 			SaveAllAuctionResults(la)
@@ -490,10 +488,7 @@ func (la *LiveAuction) nextPlayer() {
 			// Update in-memory auction list
 			UpdateAuctionStatus(la.ID, "completed", false)
 			
-			// Create trade window automatically if duration is set
-			if la.TradeWindowDuration > 0 {
-				CreateTradeWindowForAuction(la.ID, la.TradeWindowDuration)
-			}
+			// Trade window feature removed - trades out of scope
 			
 			// Update auction status in database (async)
 			go func() {
@@ -569,8 +564,7 @@ func (la *LiveAuction) nextPlayer() {
 			// No unsold players, auction is fully completed
 			la.IsRunning = false
 			
-			// Log audit event for auction completion
-			LogAuditEvent("admin", "END_AUCTION", strconv.FormatInt(la.ID, 10), la.Name, "Auction completed: "+la.Name, "system")
+			// Auction completion (audit logging removed for MVP)
 			
 			// Save all auction results to DB synchronously before marking as completed
 			SaveAllAuctionResults(la)
@@ -578,10 +572,7 @@ func (la *LiveAuction) nextPlayer() {
 			// Update in-memory auction list
 			UpdateAuctionStatus(la.ID, "completed", false)
 			
-			// Create trade window automatically if duration is set
-			if la.TradeWindowDuration > 0 {
-				CreateTradeWindowForAuction(la.ID, la.TradeWindowDuration)
-			}
+			// Trade window feature removed - trades out of scope
 			
 			// Update auction status in database (async)
 			go func() {
@@ -681,8 +672,7 @@ func (la *LiveAuction) handleControl(command string) {
 	case "stop":
 		la.IsRunning = false
 		
-		// Log audit event for manual auction stop
-		LogAuditEvent("admin", "STOP_AUCTION", strconv.FormatInt(la.ID, 10), la.Name, "Auction manually stopped: "+la.Name, "admin")
+		// Auction manually stopped (audit logging removed for MVP)
 		
 		// Save all auction results to DB synchronously before marking as completed
 		SaveAllAuctionResults(la)
@@ -690,10 +680,7 @@ func (la *LiveAuction) handleControl(command string) {
 		// Update in-memory auction list FIRST (synchronously)
 		UpdateAuctionStatus(la.ID, "completed", false)
 		
-		// Create trade window automatically if duration is set
-		if la.TradeWindowDuration > 0 {
-			CreateTradeWindowForAuction(la.ID, la.TradeWindowDuration)
-		}
+		// Trade window feature removed - trades out of scope
 		
 		// Update auction status in database (async)
 		go func() {
@@ -951,7 +938,7 @@ func StopLiveAuction(auctionID int64) {
 }
 
 // Helper functions
-func writeResultToDB(result AuctionResult) {
+func writeResultToDB(result PlayerResult) {
 	// Write to MongoDB Atlas with retry logic
 	go func() {
 		maxRetries := 3
@@ -1009,7 +996,7 @@ func SaveAllAuctionResults(la *LiveAuction) {
 	
 	for _, player := range la.Players {
 		if player.Status == "sold" && player.TeamID > 0 {
-			result := AuctionResult{
+			result := PlayerResult{
 				AuctionID:  la.ID,
 				PlayerID:   player.ID,
 				PlayerName: player.Name,

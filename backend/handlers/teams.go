@@ -145,9 +145,7 @@ func CreateTeam(w http.ResponseWriter, r *http.Request) {
 		}(team)
 	}
 
-	// Log audit event
-	ipAddress := r.RemoteAddr
-	LogAuditEvent("admin", "CREATE_TEAM", strconv.FormatInt(team.ID, 10), team.Name, "Created team: "+team.Name, ipAddress)
+	// Team created (audit logging removed for MVP)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -178,9 +176,7 @@ func DeleteTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Log audit event before deletion
-	ipAddress := r.RemoteAddr
-	LogAuditEvent("admin", "DELETE_TEAM", strconv.FormatInt(team.ID, 10), team.Name, "Deleted team: "+team.Name, ipAddress)
+	// Team deleted (audit logging removed for MVP)
 
 	// Create snapshots for completed auctions BEFORE deleting
 	createTeamSnapshots(id, *team)
@@ -235,7 +231,6 @@ func UpdateTeam(w http.ResponseWriter, r *http.Request) {
 
 	for i := range teams {
 		if teams[i].ID == id {
-			oldName := teams[i].Name
 			updatedTeam.ID = teams[i].ID
 			updatedTeam.CreatedAt = teams[i].CreatedAt
 			if updatedTeam.Code == "" {
@@ -253,13 +248,7 @@ func UpdateTeam(w http.ResponseWriter, r *http.Request) {
 			// Update memory immediately
 			teams[i] = updatedTeam
 
-			// Log audit event
-			ipAddress := r.RemoteAddr
-			details := "Updated team: " + oldName
-			if oldName != updatedTeam.Name {
-				details += " → " + updatedTeam.Name
-			}
-			LogAuditEvent("admin", "UPDATE_TEAM", strconv.FormatInt(updatedTeam.ID, 10), updatedTeam.Name, details, ipAddress)
+			// Team updated (audit logging removed for MVP)
 
 			// Save to DB asynchronously
 			if config.DB != nil {

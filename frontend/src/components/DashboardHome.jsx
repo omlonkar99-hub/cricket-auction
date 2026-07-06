@@ -2,9 +2,9 @@ import { createSignal, createEffect, Show, For } from 'solid-js';
 import ManageTeams from './ManageTeams';
 import ManagePlayers from './ManagePlayers';
 import CreateAuction from './CreateAuction';
-import CreateRetentionAuction from './CreateRetentionAuction';
+
 import AdminSettings from './AdminSettings';
-import AuditLogs from './AuditLogs';
+
 import { apiCall } from '../utils/api';
 
 export default function DashboardHome(props) {

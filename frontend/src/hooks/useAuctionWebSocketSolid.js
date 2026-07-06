@@ -9,7 +9,7 @@ export function useAuctionWebSocketSolid(auctionId) {
   const [bidHistory, setBidHistory] = createSignal([]); // Track all bids and events
   const [unsoldPlayers, setUnsoldPlayers] = createSignal([]); // Track unsold players
   const [soldPlayers, setSoldPlayers] = createSignal([]); // Track sold players
-  const [teamPlayers, setTeamPlayers] = createSignal([]); // Track sold players by team (array, not object)
+  const [teamPlayers, setTeamPlayers] = createSignal([]); // Track sold players by team (array)
   const [ping, setPing] = createSignal(0); // Real WebSocket latency
   let ws = null;
   let reconnectTimeout = null;
