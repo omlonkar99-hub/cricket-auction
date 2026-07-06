@@ -8,6 +8,18 @@ export default function AuctionBrowser(props) {
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal(null);
   const [activeTab, setActiveTab] = createSignal('all');
+  const [joinedAuctionIds, setJoinedAuctionIds] = createSignal(new Set());
+
+  // Get device UUID
+  const getDeviceUUID = () => {
+    if (typeof window === 'undefined') return '';
+    let uuid = localStorage.getItem('deviceUUID');
+    if (!uuid) {
+      uuid = crypto.randomUUID();
+      localStorage.setItem('deviceUUID', uuid);
+    }
+    return uuid;
+  };
 
   onMount(async () => {
     await fetchAuctions();
@@ -34,6 +46,23 @@ export default function AuctionBrowser(props) {
       }));
       
       setAuctions(normalized);
+      
+      // Fetch participant info to determine which auctions user joined
+      const deviceUUID = getDeviceUUID();
+      const joined = new Set();
+      
+      for (const auction of normalized) {
+        try {
+          const participantRes = await apiCall(`/api/auctions/${auction.id}/participant/${deviceUUID}`);
+          if (participantRes.ok) {
+            joined.add(String(auction.id));
+          }
+        } catch (err) {
+          // Silently skip - participant not found
+        }
+      }
+      
+      setJoinedAuctionIds(joined);
       applyFilters(normalized, searchQuery(), activeTab());
     } catch (err) {
       console.error('Error fetching auctions:', err);
@@ -49,7 +78,11 @@ export default function AuctionBrowser(props) {
     let filtered = auctionList;
 
     // Filter by tab
-    if (tab === 'live') {
+    if (tab === 'joined') {
+      // Show only auctions where user is a participant
+      const joined = joinedAuctionIds();
+      filtered = filtered.filter(a => joined.has(String(a.id)));
+    } else if (tab === 'live') {
       filtered = filtered.filter(a => a.isLive);
     } else if (tab === 'upcoming') {
       filtered = filtered.filter(a => !a.isLive && a.status !== 'completed');
@@ -158,6 +191,20 @@ export default function AuctionBrowser(props) {
             All Auctions
             <Show when={activeTab() === 'all'}>
               <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-400"></div>
+            </Show>
+          </button>
+          <button
+            onClick={() => handleTabChange('joined')}
+            class={`px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors relative flex items-center gap-2 ${
+              activeTab() === 'joined' ? 'text-green-400' : 'text-gray-400 hover:text-gray-300'
+            }`}
+          >
+            <Show when={joinedAuctionIds().size > 0}>
+              <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+            </Show>
+            Joined
+            <Show when={activeTab() === 'joined'}>
+              <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-green-400"></div>
             </Show>
           </button>
           <button

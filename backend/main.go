@@ -62,6 +62,7 @@ func main() {
 		"GET /health":         true,
 		"OPTIONS /api":        true,
 		"OPTIONS /":           true,
+		"GET /api/auctions/{id}/participant/{uuid}": true,
 	}
 
 	// Apply UUID middleware (checks X-Device-UUID header for protected routes)
@@ -107,6 +108,7 @@ func main() {
 	api.HandleFunc("/auctions/{id}/presence", handlers.UpdateAuctionPresenceHandler).Methods("POST")
 	api.HandleFunc("/auctions/{id}/presence", handlers.GetAuctionPresenceHandler).Methods("GET")
 	api.HandleFunc("/auctions/{id}/join", handlers.JoinAuction).Methods("POST")
+	api.HandleFunc("/auctions/{id}/participant/{uuid}", handlers.GetParticipantStatus).Methods("GET")
 	api.HandleFunc("/auctions/{id}/remove-user", handlers.RemoveParticipant).Methods("POST")
 	api.HandleFunc("/auctions/{id}/assign-team", handlers.AssignTeam).Methods("POST")
 	

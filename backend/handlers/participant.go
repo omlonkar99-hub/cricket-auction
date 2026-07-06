@@ -2,9 +2,13 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"strconv"
 	"time"
 
 	"cricket-auction/config"
+	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -55,4 +59,39 @@ func GetParticipant(auctionID int64, uuid string) *Participant {
 		return nil
 	}
 	return &participant
+}
+
+// GetParticipantStatus returns 200 if user is participant, 404 otherwise
+func GetParticipantStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	
+	vars := mux.Vars(r)
+	auctionIDStr := vars["id"]
+	uuid := vars["uuid"]
+	
+	if auctionIDStr == "" || uuid == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Missing auction ID or UUID"})
+		return
+	}
+	
+	// Parse auction ID
+	auctionID, err := strconv.ParseInt(auctionIDStr, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid auction ID"})
+		return
+	}
+	
+	// Check if participant exists
+	participant := GetParticipant(auctionID, uuid)
+	if participant == nil || participant.Status == "removed" {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Participant not found"})
+		return
+	}
+	
+	// Return participant info
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(participant)
 }

@@ -42,8 +42,8 @@ export function useAuctionWebSocketSolid(auctionId) {
       
       let wsUrl;
       if (isProduction) {
-        // Production: Use hardcoded backend URL
-        wsUrl = `${protocol}//auction-backend-l24v.onrender.com/api/auctions/${auctionIdStr}/ws`;
+        // Production: Use cricket-auction-public.onrender.com
+        wsUrl = `${protocol}//cricket-auction-public.onrender.com/api/auctions/${auctionIdStr}/ws`;
       } else {
         // Development: Use localhost with port
         const backendPort = import.meta.env.VITE_BACKEND_PORT || '8080';
